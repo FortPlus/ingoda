@@ -1,1 +1,1 @@
-Build a logging infrastructure
+Build a logging infrastructure.
