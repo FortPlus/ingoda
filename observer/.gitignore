@@ -1,0 +1,4 @@
+bin
+config.json
+.idea
+__pycache__
