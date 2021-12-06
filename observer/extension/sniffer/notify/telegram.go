@@ -5,6 +5,7 @@
 */
 import(
 	 "log"
+     "encoding/json"
 
 	 "fort.plus/repository"
 	 "fort.plus/messengers/telegram"
@@ -18,28 +19,30 @@ var (
     TELEGRAM_NOTIFICATION_GROUP int64 = config.GetCurrent().TelegramNotificationGroup
 )
 
+//
+//  prepare repository to store reference between callback function and patterns from config file
+//
 func init() {
-	repository.Register(".*BGP.*", notifyTelegram)
-    //asa
-	repository.Register("Lost Failover", notifyTelegram)
-
-    repository.Register(".*EC.*BUNDLE.*", notifyTelegram)
-    repository.Register(".*HSRP.*CHANGE.*", notifyTelegram)
-    repository.Register(".*OSPF.*ADJ.*", notifyTelegram)
-    repository.Register(".*OSPF.*ADJ.*", notifyTelegram)
-    repository.Register(".*ower to module.*", notifyTelegram)
-    repository.Register(".*FRU.*ower.*", notifyTelegram)
-    repository.Register(".*ower.*upply.*", notifyTelegram)
+    notifyPatterns := config.GetCurrent().ExtSnifferNotifyTelegram
+    for _, pattern := range notifyPatterns {
+	    repository.Register(pattern, notifyTelegram)
+    }
 }
 
 var notifyTelegram = func(message repository.RegExComparator)  {
-    var syslogMessage mbroker.SyslogMessage = message.(mbroker.SyslogMessage)
-    log.Printf("notifyTelegram, message is:%s",syslogMessage.Text)
+    var natsMessage mbroker.NatsMessage = message.(mbroker.NatsMessage)
 
-    if diff.IsThresholdExceeded(syslogMessage.Text, DIFF_FILTER_THRESHOLD) {
-	    telegram.SendMessage(TELEGRAM_NOTIFICATION_GROUP, syslogMessage.Text)
+    var syslogMessage mbroker.SyslogMessage
+
+    json.Unmarshal([]byte(natsMessage.Text), &syslogMessage)
+
+    log.Printf("notifyTelegram, message is:%s",syslogMessage.AsText())
+
+    if diff.IsThresholdExceeded(natsMessage.Text, DIFF_FILTER_THRESHOLD) {
+	    telegram.SendTextMessage(TELEGRAM_NOTIFICATION_GROUP, syslogMessage.AsText())
 	} else {
-    	log.Printf("Message is diff filtered, skip sending:%s",syslogMessage.Text)
+    	log.Printf("Message is diff filtered, skip sending:%s",syslogMessage.AsText())
 	}
 }
+
 

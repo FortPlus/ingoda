@@ -11,16 +11,9 @@ import (
     "github.com/nats-io/nats.go"
 
     "fort.plus/config"
+    "fort.plus/mbroker"
     "fort.plus/fperror"
 )
-
-
-
-type Message struct {
-  Host string
-  Severity string 
-  Facility string
-}
 
 var (
     SYSLOG_SOCKET string = config.GetCurrent().SyslogSocket
@@ -37,7 +30,7 @@ func main() {
     defer nc.Close()
    
     buff := make([]byte, 1024)
-    var msg Message
+    var msg mbroker.SyslogMessage
     var sb strings.Builder
     for {
         sb.Reset()
@@ -49,6 +42,7 @@ func main() {
         log.Printf("n: %d, addr: %v, err: %v, buf: %s\n", n, addr, err, buff[0:n])
         
         json.Unmarshal(buff[0:n], &msg)
+
         sb.WriteString(NATS_SUBJECT)
         sb.WriteString(".")
         sb.WriteString(msg.Facility)

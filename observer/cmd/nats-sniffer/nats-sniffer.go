@@ -33,10 +33,10 @@ func main() {
     wg.Add(1)
 
     nc.Subscribe(NATS_SUBJECT+".>", func(m *nats.Msg) {
-       var syslogMessage mbroker.SyslogMessage
-       syslogMessage.Subject = m.Subject
-       syslogMessage.Text = string(m.Data)
-        repository.Call(syslogMessage)
+       var natsMessage mbroker.NatsMessage
+       natsMessage.Subject = m.Subject
+       natsMessage.Text = string(m.Data)
+        repository.Call(natsMessage)
     })
     nc.Flush()
 

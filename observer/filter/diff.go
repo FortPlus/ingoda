@@ -36,8 +36,12 @@ func Reset() {
 func IsThresholdExceeded(message string, threshold int) bool {
 	ld := GetLevenshteinDistance(message)
 	log.Printf("LD:%d", ld)
+    if !foundSamplesToCompare {
+        return true
+    }
+
 	//return true if no samples to compare with, or threshold not exceeded
-	if foundSamplesToCompare && ld < threshold {
+	if ld < threshold {
 		return true
 	} else {
 		log.Printf("threshold exceeded, LD:%d", ld)
@@ -69,11 +73,7 @@ func calcMinimumDistance(message string) int {
 			}
 		}
 	}
-	if foundSamplesToCompare {
-		return minDistance
-	} else {
-		return 0
-	}
+	return minDistance
 }
 
 func adjustCurrentIndex() {

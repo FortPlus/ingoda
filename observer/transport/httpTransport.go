@@ -35,7 +35,7 @@ func PostJson(uri string, jsonPayload interface{}) error {
 
 	payload := new(bytes.Buffer)
 	err = json.NewEncoder(payload).Encode(jsonPayload)
-	log.Println(payload)
+	log.Println("payload is:", payload)
 	if err != nil {
 		return fperror.Warning("Can't encode payload", err)
 	}

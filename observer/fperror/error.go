@@ -21,7 +21,11 @@ type customError struct {
 }
 
 func (e *customError) Error() string {
-    return fmt.Sprintf("%s, %s, trace:%s",levelName[e.level], e.msg, e.trace)
+    if e.err != nil {
+        return fmt.Sprintf("%s, %s, trace:%s, %s",levelName[e.level], e.msg, e.trace, e.err)
+    } else { 
+        return fmt.Sprintf("%s, %s, trace:%s",levelName[e.level], e.msg, e.trace)
+    }
 }
 
 func Alarm(errorText string, err error) *customError {
@@ -37,7 +41,7 @@ func Critical(errorText string, err error) *customError {
 }
 
 func getTrace() string {
-    stackSlice := make([]byte, 512)
+    stackSlice := make([]byte, 1024)
 	s := runtime.Stack(stackSlice, false)
     return fmt.Sprintf("\n%s\n", stackSlice[0:s])
 }

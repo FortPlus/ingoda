@@ -1,11 +1,44 @@
 package telegram
-import ("regexp")
+import (
+    "regexp"
+    "html"
+
+    "fort.plus/fperror"
+)
+
+const (
+    MAX_MSG_SIZE = 4000
+    HTML_MSG        = "HTML"
+    MARKDOWN_MSG    = "MarkdownV2"
+
+)
 
 type TelegramMessage struct {
 	ChatId    int64  `json:"chat_id"`
 	ParseMode string `json:"parse_mode"`
 	Text      string `json:"text"`
 }
+
+func (m *TelegramMessage) SetTextHtml(text string) error {
+    if len(text) == 0 {
+        return fperror.Warning("Message text is empty", nil)
+    }
+    if len(text) > MAX_MSG_SIZE {
+        text = text[:MAX_MSG_SIZE]
+    }
+    m.ParseMode = HTML_MSG
+	m.Text = "<pre>" + html.EscapeString(text)+"</pre>"
+	return nil
+}
+
+func (m *TelegramMessage) SetChatId(chatId int64) error {
+    if chatId == 0 {
+        return fperror.Warning("chat ID unspecified", nil)
+    }
+    m.ChatId = chatId
+    return nil
+}
+
 
 type teleChat struct {
 	ChatId int64  `json:"id"`
@@ -35,6 +68,5 @@ type Message struct {
 	Text string
 }
 func (m Message) IsRegExEqual(pattern string) (bool, error) {
-//     fmt.Printf("a1 function, message is:%s\n",pattern)
     return regexp.MatchString(pattern, m.Text)
 }

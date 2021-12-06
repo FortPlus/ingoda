@@ -4,6 +4,11 @@
   "telegram.notification.diff.threshold": 10,
   "nats.connection.string": "nats://localhost:4222",
   "nats.syslog.subject": "slg",
-  "syslog.socket":"/tmp/rslg.sock"
+  "syslog.socket":"/tmp/rslg.sock",
+
+  "extension.sniffer.notify.telegram": [
+      "BGP",
+      "OSPF"
+  ]
 
 }

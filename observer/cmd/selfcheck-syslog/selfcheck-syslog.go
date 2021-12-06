@@ -84,7 +84,7 @@ func listenNats(message string) bool {
     }
 
     if waitTimeout(&wg, (MAX_DELIVERY_TIME + SLEEP_BEFORE_SEND_MESSAGE)*time.Second) {
-        telegram.SendMessage(TELEGRAM_NOTIFICATION_GROUP, "Dear engineers, syslog doesn't work correctly")
+        telegram.SendTextMessage(TELEGRAM_NOTIFICATION_GROUP, "Dear engineers, syslog doesn't work correctly")
         log.Println("Timed out waiting for wait group")
    } else {
         log.Println("Wait group finished")

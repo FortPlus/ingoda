@@ -3,10 +3,7 @@
 import (
 	"fort.plus/config"
 	"fort.plus/fperror"
-	"encoding/json"
 	"fmt"
-//	"strings"
-	"html"
 	"log"
 	"time"
 	"strconv"
@@ -14,7 +11,6 @@ import (
 )
 
 const (
-	PARSE_MODE           = "MarkdownV2"
 	TELEGRAM_URL         = "https://api.telegram.org/bot%s/sendMessage"
 	TELEGRAM_GET_MSG_URL = "https://api.telegram.org/bot%s/getUpdates?offset=%d"
 	MESSAGE_EXPIRED_TIME = 180 //seconds
@@ -76,52 +72,20 @@ func GetMessages() ([]Message, error) {
 }
 
 func SendTextMessage(chatId int64, message string) error {
-    //message = strings.Replace(message, "=","",-1)
-    if len(message) > 4000 {
-        message = message[:4000]
-    }
 	var url = fmt.Sprintf(TELEGRAM_URL, TELEGRAM_TOKEN)
 	var msg TelegramMessage
-	msg.ChatId = chatId
-	msg.Text = html.EscapeString("<pre>"+message+"</pre>")
-	msg.ParseMode = "HTML"
+
+	msg.SetChatId(chatId)
+    msg.SetTextHtml(message)
 
 	err := httpTransport.PostJson(url, msg)
     if err != nil {
-        log.Println(err)
+        log.Println(fperror.Warning("got error in PostJson", err))
     }
 	return err
 }
 
-func SendMessage(chatId int64, message string) error {
-	var (
-	    url = fmt.Sprintf(TELEGRAM_URL, TELEGRAM_TOKEN)
-	    msg TelegramMessage
-	    err error
-	)
-	msg.ChatId = chatId
-	msg.ParseMode = PARSE_MODE
 
-	decodedMessage, _ := DecodeJson(message)
-	msg.Text = decodedMessage
 
-	httpTransport.PostJson(url, msg)
-    //if err != nil {
-    //    log.Println(fperror.Warning("can't post data", err))
-    //}
-	return err
-}
 
-func DecodeJson(s string) (string, error) {
-	var js map[string]interface{}
-	var returnValue string
 
-	err := json.Unmarshal([]byte(s), &js)
-
-	if err != nil {
-		return s, err
-	}
-	returnValue = fmt.Sprintf("``` #syslog %s\n%s```", js["host"], js["msg"])
-
-	return returnValue, nil
-}

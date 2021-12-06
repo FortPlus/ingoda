@@ -26,6 +26,9 @@ type config struct {
 	NatsConnectionString string `json:"nats.connection.string"`
 	NatsSyslogSubject string `json:"nats.syslog.subject"`
 
+
+	ExtSnifferNotifyTelegram []string `json:"extension.sniffer.notify.telegram"`
+
 	empty bool
 }
 
