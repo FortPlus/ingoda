@@ -1,23 +1,38 @@
+FROM alpine:3.6 as alpine
+RUN apk add -U --no-cache ca-certificates
+
+
 FROM golang:latest as builder
-
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
 WORKDIR /app
-
 COPY ./observer ./
 RUN make
-
 
 ##
 ## Deploy
 ##
-FROM gcr.io/distroless/base-debian10
+FROM scratch as autobot
+ENV FP_LOG_CONF=/ingoda/config.json 
+COPY --from=builder /app/bin/autobot /ingoda/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/ingoda/autobot"]
 
-WORKDIR /
 
-COPY --from=builder /bin/ /ingoda
+FROM scratch as nats-sniffer
+ENV FP_LOG_CONF=/ingoda/config.json
+COPY --from=builder /app/bin/nats-sniffer /ingoda/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/ingoda/nats-sniffer"]
 
-EXPOSE 8030
 
-USER nonroot:nonroot
 
-ENTRYPOINT ["/ingoda"]
+FROM ubuntu:latest as selfcheck-syslog
+ENV FP_LOG_CONF=/ingoda/config.json
+COPY --from=builder /app/bin/selfcheck-syslog /ingoda/
+COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/ingoda/selfcheck-syslog"]
+
 
