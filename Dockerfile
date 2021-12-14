@@ -1,7 +1,3 @@
-FROM alpine:3.6 as alpine
-RUN apk add -U --no-cache ca-certificates
-
-
 FROM golang:latest as builder
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
@@ -32,7 +28,7 @@ ENTRYPOINT ["/ingoda/nats-sniffer"]
 FROM ubuntu:latest as selfcheck-syslog
 ENV FP_LOG_CONF=/ingoda/config.json
 COPY --from=builder /app/bin/selfcheck-syslog /ingoda/
-COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/ingoda/selfcheck-syslog"]
 
 
