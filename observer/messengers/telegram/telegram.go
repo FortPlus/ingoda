@@ -27,10 +27,10 @@ func GetMessages() ([]Message, error) {
 	var response []Message
 	var res TelegramUpdates
 
-	httpTransport.GetAndUnmarshall(url, &res)
+	err = httpTransport.GetAndUnmarshall(url, &res)
 
 	if !res.Ok {
-		log.Panic(fperror.Warning("got response with false status", nil))
+		log.Panic(fperror.Warning("got response with false status", err))
 		return response, err
 	}
 
