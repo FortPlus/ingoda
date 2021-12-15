@@ -39,10 +39,10 @@ var notifyTelegram = func(message repository.RegExComparator)  {
     log.Printf("notifyTelegram, message is:%s",syslogMessage.AsText())
 
     if diff.IsThresholdExceeded(natsMessage.Text, DIFF_FILTER_THRESHOLD) {
-	    telegram.SendTextMessage(TELEGRAM_NOTIFICATION_GROUP, syslogMessage.AsText())
-	} else {
-    	log.Printf("Message is diff filtered, skip sending:%s",syslogMessage.AsText())
-	}
+    	log.Printf("Message look the same, skip sending:%s",syslogMessage.AsText())
+    } else {
+	telegram.SendTextMessage(TELEGRAM_NOTIFICATION_GROUP, syslogMessage.AsText())
+    }
 }
 
 
