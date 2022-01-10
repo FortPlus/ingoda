@@ -4,7 +4,7 @@ ENV GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 WORKDIR /app
-COPY ./observer ./
+COPY observer ./
 RUN make
 
 ##

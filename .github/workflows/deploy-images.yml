@@ -1,0 +1,40 @@
+name: Push observer images
+
+on:   
+  push:
+    branches:
+      - main
+    # Publish `v1.2.3` tags as releases.
+    tags:
+      - v*
+
+  # Run tests for any PRs.
+  pull_request:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build observer/autobot Docker image
+        run: |
+          docker build . --target autobot -t ghcr.io/fortplus/ingoda/observer/autobot:latest
+          docker push ghcr.io/fortplus/ingoda/observer/autobot:latest
+
+      - name: Build observer/nats-sniffer Docker image
+        run: |
+          docker build . --target nats-sniffer -t ghcr.io/fortplus/ingoda/observer/nats-sniffer:latest
+          docker push ghcr.io/fortplus/ingoda/observer/nats-sniffer:latest
+
+      - name: Build observer/selfcheck-syslog Docker image
+        run: |
+          docker build . --target selfcheck-syslog -t ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
+          docker push ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
