@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/agnivade/levenshtein v1.1.1
+	github.com/gorilla/mux v1.8.0
 	github.com/nats-io/nats.go v1.13.0
 )
 

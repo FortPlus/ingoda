@@ -38,3 +38,8 @@ jobs:
         run: |
           docker build . --target selfcheck-syslog -t ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
           docker push ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
+
+      - name: Build observer/ban Docker image
+        run: |
+          docker build . --target ban -t ghcr.io/fortplus/ingoda/observer/ban:latest
+          docker push ghcr.io/fortplus/ingoda/observer/ban:latest

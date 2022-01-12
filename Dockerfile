@@ -32,3 +32,11 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/ingoda/selfcheck-syslog"]
 
 
+
+FROM ubuntu:latest as ban
+ENV FP_LOG_CONF=/ingoda/config.json
+COPY --from=builder /app/bin/ban /ingoda/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/ingoda/ban"]
+
+
