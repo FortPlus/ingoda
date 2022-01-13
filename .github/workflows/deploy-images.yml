@@ -24,22 +24,27 @@ jobs:
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build observer/autobot Docker image
+      - name: Build observer/autobot image
         run: |
           docker build . --target autobot -t ghcr.io/fortplus/ingoda/observer/autobot:latest
           docker push ghcr.io/fortplus/ingoda/observer/autobot:latest
 
-      - name: Build observer/nats-sniffer Docker image
+      - name: Build observer/nats-sniffer image
         run: |
           docker build . --target nats-sniffer -t ghcr.io/fortplus/ingoda/observer/nats-sniffer:latest
           docker push ghcr.io/fortplus/ingoda/observer/nats-sniffer:latest
 
-      - name: Build observer/selfcheck-syslog Docker image
+      - name: Build observer/selfcheck-syslog image
         run: |
           docker build . --target selfcheck-syslog -t ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
           docker push ghcr.io/fortplus/ingoda/observer/selfcheck-syslog:latest
 
-      - name: Build observer/ban Docker image
+      - name: Build observer/ban image
         run: |
           docker build . --target ban -t ghcr.io/fortplus/ingoda/observer/ban:latest
           docker push ghcr.io/fortplus/ingoda/observer/ban:latest
+
+      - name: Build observer/receiver image
+        run: |
+          docker build . --target receiver -t ghcr.io/fortplus/ingoda/observer/receiver:latest
+          docker push ghcr.io/fortplus/ingoda/observer/receiver:latest

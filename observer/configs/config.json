@@ -5,6 +5,7 @@
   "nats.connection.string": "nats://localhost:4222",
   "nats.syslog.subject": "slg",
   "syslog.socket":"/tmp/rslg.sock",
+  "receiver.udp.socket":"9191",
   "ban.server.port":":9190",
 
   "extension.sniffer.notify.telegram": [

@@ -16,7 +16,8 @@ const (
 )
 
 type config struct {
-	SyslogSocket string `json:"syslog.socket"`
+	SyslogSocket      string `json:"syslog.socket"`
+	ReceiverUdpSocket string `json:"receiver.udp.socket"`
 
 	TelegramToken                     string `json:"telegram.token"`
 	TelegramNotificationGroup         int64  `json:"telegram.notification.group"`

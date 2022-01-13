@@ -3,7 +3,6 @@
 import (
 	"runtime"
 	"testing"
-	"fort.plus/fperror"
 )
 
 func trace() string {
@@ -16,8 +15,6 @@ func trace() string {
 }
 
 func TestSameStringsDistance(t *testing.T) {
-     e := fperror.Throw("some shit happen")
-     e.AsString()
 	Reset()
 	a := GetLevenshteinDistance("abc")
 	b := GetLevenshteinDistance("abc")
