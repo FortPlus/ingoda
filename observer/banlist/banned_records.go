@@ -31,6 +31,7 @@ type BannedRecords struct {
 
 // Create new banned records map
 func NewBannedRecords(name string) *BannedRecords {
+	log.Println("NewBannedRecords")
 	var b BannedRecords
 	b.items = make(ItemsMap)
 	b.lock = sync.RWMutex{}

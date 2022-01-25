@@ -23,7 +23,8 @@ type config struct {
 	TelegramNotificationGroup         int64  `json:"telegram.notification.group"`
 	TelegramNotificationDiffThreshold int    `json:"telegram.notification.diff.threshold"`
 
-	BanServerPort string `json:"ban.server.port"`
+	BanConnectionString string `json:"ban.connection.string"`
+	BanServerPort       string `json:"ban.server.port"`
 
 	NatsConnectionString string `json:"nats.connection.string"`
 	NatsSyslogSubject    string `json:"nats.syslog.subject"`

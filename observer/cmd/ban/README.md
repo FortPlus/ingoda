@@ -9,10 +9,10 @@ Response codes:
 - 204 - item doesn't exists in banned list
 - 500 - internal error
 
-#### Check if item exists in banned list: GET: [/api/{version}/check-if-banned]()
+#### Check if item exists in banned list: GET: [/api/{version}/banned-list/exist]()
 Response codes:
-- 200 - item is exists in banned list
-- 204 - item doesn't exists in banned list
+- 200 - item is exists in list
+- 204 - item doesn't exists in list
 - 500 - internal error
 
 #### Add record to banned list: POST: [/api/{version}/banned-list]()

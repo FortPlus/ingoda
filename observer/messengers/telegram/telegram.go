@@ -1,12 +1,13 @@
 ﻿package telegram
 
 import (
-	"fort.plus/config"
-	"fort.plus/fperror"
 	"fmt"
 	"log"
-	"time"
 	"strconv"
+	"time"
+
+	"fort.plus/config"
+	"fort.plus/fperror"
 	httpTransport "fort.plus/transport"
 )
 
@@ -15,7 +16,6 @@ const (
 	TELEGRAM_GET_MSG_URL = "https://api.telegram.org/bot%s/getUpdates?offset=%d"
 	MESSAGE_EXPIRED_TIME = 180 //seconds
 )
-
 
 var lastUpdateId int64 = 0
 var TELEGRAM_TOKEN string = config.GetCurrent().TelegramToken
@@ -30,7 +30,7 @@ func GetMessages() ([]Message, error) {
 	err = httpTransport.GetAndUnmarshall(url, &res)
 
 	if !res.Ok {
-		log.Panic(fperror.Warning("got response with false status", err))
+		log.Println(fperror.Warning("got response with false status", err))
 		return response, err
 	}
 
@@ -76,16 +76,11 @@ func SendTextMessage(chatId int64, message string) error {
 	var msg TelegramMessage
 
 	msg.SetChatId(chatId)
-    msg.SetTextHtml(message)
+	msg.SetTextHtml(message)
 
 	err := httpTransport.PostJson(url, msg)
-    if err != nil {
-        log.Println(fperror.Warning("got error in PostJson", err))
-    }
+	if err != nil {
+		log.Println(fperror.Warning("error while SendTextMessage", err))
+	}
 	return err
 }
-
-
-
-
-

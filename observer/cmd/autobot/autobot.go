@@ -2,17 +2,17 @@
 
 import (
 	"log"
+	"os"
 	"time"
-    "os"
+
 	_ "fort.plus/extension/autobot"
+	"fort.plus/fperror"
 	"fort.plus/messengers/telegram"
 	"fort.plus/repository"
-	"fort.plus/fperror"
 )
 
 func main() {
-    log.SetOutput(os.Stdout)
-    
+	log.SetOutput(os.Stdout)
 	for {
 		messages, err := telegram.GetMessages()
 		if err != nil {
@@ -21,7 +21,6 @@ func main() {
 		for _, message := range messages {
 			go repository.Call(message)
 		}
-		log.Println("got message:",messages)
 		time.Sleep(20 * time.Second)
 	}
 }
