@@ -1,4 +1,3 @@
-// Provide helper functions to work with NATS message queue server
 package mbroker
 
 import (
@@ -14,7 +13,6 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"fort.plus/config"
 	"fort.plus/fperror"
 )
 
@@ -22,12 +20,18 @@ const (
 	MAX_BATCH_SALT_VALUE = 1000
 )
 
-var wg sync.WaitGroup
-var nc *nats.Conn
-
-var NATS_SERVER string = config.GetCurrent().NatsConnectionString
+var (
+	wg      sync.WaitGroup
+	nc      *nats.Conn
+	natsURI string
+)
 
 type CallbackFunction = func(response string, err error)
+
+func New(uri string) {
+	natsURI = uri
+	natsConnect()
+}
 
 func natsConnect() {
 	var err error = nil
@@ -39,7 +43,7 @@ func natsConnect() {
 	opts = setupConnOptions(opts)
 
 	// Connect to a server
-	nc, err = nats.Connect(NATS_SERVER, opts...)
+	nc, err = nats.Connect(natsURI, opts...)
 	if err != nil {
 		log.Fatal(fperror.Warning("can't connect to NATS server", err))
 	}
@@ -68,7 +72,7 @@ func WaitForSubject(subject string, timeout int, callback CallbackFunction) (str
 
 	if waitTimeout(&wg, time.Duration(timeout)*time.Second) {
 		log.Println("Timed out waiting for wait group")
-		err = errors.New("Timeout error")
+		err = errors.New("timeout error")
 	} else {
 		log.Println("Wait group finished")
 	}

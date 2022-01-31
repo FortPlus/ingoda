@@ -14,3 +14,6 @@ clean:
 	$(GO) clean
 	touch bin/tmp.tmp
 	rm bin/*
+
+test:
+	$(GO) test ./...

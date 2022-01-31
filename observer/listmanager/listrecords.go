@@ -1,4 +1,4 @@
-package banlist
+package listmanager
 
 import (
 	"context"
@@ -21,7 +21,7 @@ type Item struct {
 
 type ItemsMap map[uint32]Item
 
-type BannedRecords struct {
+type ListRecords struct {
 	items  ItemsMap
 	name   string
 	lock   sync.RWMutex
@@ -30,9 +30,9 @@ type BannedRecords struct {
 }
 
 // Create new banned records map
-func NewBannedRecords(name string) *BannedRecords {
-	log.Println("NewBannedRecords")
-	var b BannedRecords
+func New(name string) *ListRecords {
+	log.Println("New ", name)
+	var b ListRecords
 	b.items = make(ItemsMap)
 	b.lock = sync.RWMutex{}
 	b.name = name
@@ -41,46 +41,57 @@ func NewBannedRecords(name string) *BannedRecords {
 	return &b
 }
 
-func cleanExpired(ctx context.Context, b *BannedRecords) {
+func cleanExpired(ctx context.Context, b *ListRecords) {
 	log.Println("cleanExpired(ctx,", b.name, ")")
-	go func() {
-		for {
+
+	for {
+		time.Sleep(CLEANUP_PERIOD * time.Second)
+		select {
+		case <-ctx.Done():
+			log.Println(b.name, "banlist::cleanExpired() - context is done")
+			return
+		default:
 			log.Println(b.name, "time to start cleanup")
 			b.cleanExpired()
-			time.Sleep(CLEANUP_PERIOD * time.Second)
 		}
-	}()
-	<-ctx.Done()
-	log.Println(b.name, "banlist::cleanExpired() - done")
+	}
 }
 
 // Prepare banned records service to stop cleanup and storage update goroutines
-func (b *BannedRecords) Close() {
+func (b *ListRecords) IsEmpty() bool {
+	log.Println(b.name, "banlist::IsEmpty()")
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return len(b.items) == 0
+}
+
+// Prepare banned records service to stop cleanup and storage update goroutines
+func (b *ListRecords) Close() {
 	log.Println(b.name, "banlist::Close()")
 	b.cancel()
 }
 
-func (b *BannedRecords) cleanExpired() {
+func (b *ListRecords) cleanExpired() {
 	log.Println(b.name, "banlist::CleanExpired()")
 	currentTime := time.Now()
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	for id, element := range b.items {
-		if currentTime.Sub(element.ExpiredAt) > 0 {
+		if !element.ExpiredAt.IsZero() && currentTime.Sub(element.ExpiredAt) > 0 {
 			delete(b.items, id)
 		}
 	}
 }
 
 // Delete all patterns from banned records
-func (b *BannedRecords) Clear() {
+func (b *ListRecords) Clear() {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.items = make(ItemsMap)
 }
 
 // Get all records in JSON format
-func (b *BannedRecords) GetRecords() ([]byte, error) {
+func (b *ListRecords) GetRecords() ([]byte, error) {
 	var err error
 
 	b.lock.RLock()
@@ -94,7 +105,7 @@ func (b *BannedRecords) GetRecords() ([]byte, error) {
 }
 
 // Add item to banned records
-func (b *BannedRecords) AddRecord(item Item) error {
+func (b *ListRecords) AddRecord(item Item) error {
 	var result error
 	id := crc32.ChecksumIEEE([]byte(item.Pattern))
 	b.lock.Lock()
@@ -109,7 +120,7 @@ func (b *BannedRecords) AddRecord(item Item) error {
 }
 
 // Check if message is banned with regexp pattern matching
-func (b *BannedRecords) CheckIfExists(msg string) bool {
+func (b *ListRecords) CheckIfExists(msg string) bool {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 	for _, element := range b.items {
@@ -122,7 +133,7 @@ func (b *BannedRecords) CheckIfExists(msg string) bool {
 }
 
 // Delete pattern from banned records using crc32 pattern ID
-func (b *BannedRecords) Delete(id uint32) error {
+func (b *ListRecords) Delete(id uint32) error {
 	var result error
 
 	b.lock.Lock()

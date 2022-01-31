@@ -6,42 +6,68 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 
-	"fort.plus/banlist"
+	banlist "fort.plus/listmanager"
 )
 
 const (
-	API_URI         = "/api"
-	BANNED_LIST     = "/banned-list"
-	CHECK_IF_BANNED = "/exist"
-	API_VERSION     = "/v1"
-
-	BASE_URI = API_URI + API_VERSION + BANNED_LIST
-
-	GET_LIST_URI = BASE_URI
-	ADD_URI      = BASE_URI
-	DELETE_URI   = BASE_URI + "/{id}"
-	CHECK_URI    = BASE_URI + CHECK_IF_BANNED
+	BASE_URI       = "/api/v1/{name}"
+	CHECK_URI      = BASE_URI + "/exist"
+	DELETE_URI     = BASE_URI + "/{id}"
+	CLEANUP_PERIOD = 180
 )
 
 var (
-	banList *banlist.BannedRecords
+	listMap map[string]*banlist.ListRecords = map[string]*banlist.ListRecords{}
+	lock                                    = sync.RWMutex{}
 )
 
-func SetHandlers(router *mux.Router) {
-	banList = banlist.NewBannedRecords("WebApi")
+func listMapCleanEmpty() {
+	log.Println("listMapCleanEmpty()")
+	for {
+		time.Sleep(CLEANUP_PERIOD * time.Second)
+		log.Println("listMapCleanEmpty:time to cleanup")
+		lock.Lock()
+		for key, val := range listMap {
+			if val.IsEmpty() {
+				log.Println("listMapCleanEmpty:delete ", key)
+				val.Close()
+				delete(listMap, key)
+			}
+		}
+		lock.Unlock()
+	}
+}
 
-	router.HandleFunc(GET_LIST_URI, getBannedList).Methods(http.MethodGet)
-	router.HandleFunc(CHECK_URI, checkIfBanned).Methods(http.MethodGet)
-	router.HandleFunc(ADD_URI, addRecord).Methods(http.MethodPost)
+func getOrCreateList(name string) *banlist.ListRecords {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	if _, exist := listMap[name]; !exist {
+		listMap[name] = banlist.New(name)
+	}
+	return listMap[name]
+}
+
+func SetHandlers(router *mux.Router) {
+	go listMapCleanEmpty()
+
+	router.HandleFunc(BASE_URI, getList).Methods(http.MethodGet)
+	router.HandleFunc(CHECK_URI, checkIfExist).Methods(http.MethodGet)
+	router.HandleFunc(BASE_URI, addRecord).Methods(http.MethodPost)
 	router.HandleFunc(DELETE_URI, deleteRecord).Methods(http.MethodDelete)
 }
 
-func getBannedList(w http.ResponseWriter, r *http.Request) {
+func getList(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.GetBannedList()")
 	addHeaderParameters(w)
+	params := mux.Vars(r)
+	banList := getOrCreateList(params["name"])
+
 	records, err := banList.GetRecords()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -50,9 +76,12 @@ func getBannedList(w http.ResponseWriter, r *http.Request) {
 	w.Write(records)
 }
 
-func checkIfBanned(w http.ResponseWriter, r *http.Request) {
+func checkIfExist(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.CheckIfBanned")
 	addHeaderParameters(w)
+	params := mux.Vars(r)
+	banList := getOrCreateList(params["name"])
+
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -71,6 +100,9 @@ func checkIfBanned(w http.ResponseWriter, r *http.Request) {
 func addRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.AddRecord()")
 	addHeaderParameters(w)
+	params := mux.Vars(r)
+	banList := getOrCreateList(params["name"])
+
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -93,6 +125,8 @@ func deleteRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.DeleteRecord()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
+	banList := getOrCreateList(params["name"])
+
 	id, err := strconv.ParseUint(params["id"], 10, 32)
 
 	if err != nil || id == 0 {
@@ -109,7 +143,6 @@ func deleteRecord(w http.ResponseWriter, r *http.Request) {
 }
 
 func addHeaderParameters(w http.ResponseWriter) {
+	setCORS(w)
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 }

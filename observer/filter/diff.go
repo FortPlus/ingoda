@@ -33,12 +33,18 @@ func Reset() {
 
 }
 
+//
+//	Check how much message is different from previous, collected to samples
+//
+//	return True -	if no samples to compare with
+//					if difference betwee message and a sample is less then threshold
+//
 func IsThresholdExceeded(message string, threshold int) bool {
 	ld := GetLevenshteinDistance(message)
 	log.Printf("LD:%d", ld)
-    if !foundSamplesToCompare {
-        return true
-    }
+	if !foundSamplesToCompare {
+		return true
+	}
 
 	//return true if no samples to compare with, or threshold not exceeded
 	if ld < threshold {
@@ -61,13 +67,18 @@ func GetLevenshteinDistance(message string) int {
 }
 
 func calcMinimumDistance(message string) int {
-	var minDistance int = 1000
+	var minDistance int = -1
 	foundSamplesToCompare = false
 
 	for _, element := range samples {
 		if len(element.Text) > 0 {
 			foundSamplesToCompare = true
 			distance := levenshtein.ComputeDistance(element.Text, message)
+			//in first comparsion any resut override default value
+			if minDistance == -1 {
+				minDistance = distance
+				continue
+			}
 			if distance < minDistance {
 				minDistance = distance
 			}

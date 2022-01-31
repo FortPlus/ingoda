@@ -1,17 +1,17 @@
-package banlist_test
+package listmanager_test
 
 import (
 	"hash/crc32"
 	"testing"
 	"time"
 
-	. "fort.plus/banlist"
+	. "fort.plus/listmanager"
 )
 
-var records = NewBannedRecords("ban1")
+var records = New("ban1")
 
 func TestCleanup(t *testing.T) {
-	var rec = NewBannedRecords("ban2")
+	var rec = New("ban2")
 	defer rec.Close()
 
 	samePattern := "this is the pattern"

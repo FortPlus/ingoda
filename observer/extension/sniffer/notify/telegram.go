@@ -3,46 +3,47 @@
 /*
 	Send some messages to telegram channel
 */
-import(
-	 "log"
-     "encoding/json"
+import (
+	"encoding/json"
+	"log"
 
-	 "fort.plus/repository"
-	 "fort.plus/messengers/telegram"
-	 "fort.plus/mbroker"
-	 "fort.plus/config"
-	 "fort.plus/filter"
+	diff "fort.plus/filter"
+	"fort.plus/im"
+	"fort.plus/mbroker"
+	"fort.plus/repository"
 )
 
 var (
-    DIFF_FILTER_THRESHOLD int = config.GetCurrent().TelegramNotificationDiffThreshold
-    TELEGRAM_NOTIFICATION_GROUP int64 = config.GetCurrent().TelegramNotificationGroup
+	threshold  int
+	notifyAddr string
+	carrier    im.Carrier
 )
 
 //
 //  prepare repository to store reference between callback function and patterns from config file
 //
-func init() {
-    notifyPatterns := config.GetCurrent().ExtSnifferNotifyTelegram
-    for _, pattern := range notifyPatterns {
-	    repository.Register(pattern, notifyTelegram)
-    }
+func Register(m im.Carrier, to string, th int) {
+	carrier = m
+	notifyAddr = to
+	threshold = th
+	//  notifyPatterns := []//config.GetCurrent().ExtSnifferNotifyTelegram
+	// for _, pattern := range notifyPatterns {
+	// 	repository.Register(pattern, notifyTelegram)
+	// }
 }
 
-var notifyTelegram = func(message repository.RegExComparator)  {
-    var natsMessage mbroker.NatsMessage = message.(mbroker.NatsMessage)
+var notifyTelegram = func(message repository.RegExComparator) {
+	var natsMessage mbroker.NatsMessage = message.(mbroker.NatsMessage)
 
-    var syslogMessage mbroker.SyslogMessage
+	var syslogMessage mbroker.SyslogMessage
 
-    json.Unmarshal([]byte(natsMessage.Text), &syslogMessage)
+	json.Unmarshal([]byte(natsMessage.Text), &syslogMessage)
 
-    log.Printf("notifyTelegram, message is:%s",syslogMessage.AsText())
+	log.Printf("notifyTelegram, message is:%s", syslogMessage.AsText())
 
-    if diff.IsThresholdExceeded(natsMessage.Text, DIFF_FILTER_THRESHOLD) {
-    	log.Printf("Message look the same, skip sending:%s",syslogMessage.AsText())
-    } else {
-	telegram.SendTextMessage(TELEGRAM_NOTIFICATION_GROUP, syslogMessage.AsText())
-    }
+	if diff.IsThresholdExceeded(natsMessage.Text, threshold) {
+		log.Printf("Message look the same, skip sending:%s", syslogMessage.AsText())
+	} else {
+		carrier.Send(notifyAddr, syslogMessage.AsText())
+	}
 }
-
-

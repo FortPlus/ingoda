@@ -1,5 +1,5 @@
 GO=go
-PROJECT=ban
+PROJECT=listmanager
 PROJECT_MAIN=$(PROJECT).go
 OUTPUT_DIR=../../bin
 
