@@ -10,6 +10,7 @@ import (
 
 	"fort.plus/extension/autobot/chuck"
 	"fort.plus/extension/autobot/listmgmt"
+	"fort.plus/extension/autobot/whois"
 	"fort.plus/fperror"
 	"fort.plus/im"
 	"fort.plus/im/telegram"
@@ -24,6 +25,7 @@ func main() {
 	listServerUri := app.Flag("list.manager.uri", "URI of the server keeping lists.").Default("http://localhost:9190").OverrideDefaultFromEnvar("LIST_MANAGER_URI").String()
 	banGroup := app.Flag("ban.group", "Name of banned list , managed by IM bot.").Default("ban").OverrideDefaultFromEnvar("BAN_GROUP").String()
 	notifyGroup := app.Flag("notify.group", "Name of notification list, managed by IM bot.").Default("notify").OverrideDefaultFromEnvar("NOTIFY_GROUP").String()
+	whoisFileName := app.Flag("whois.file", "Path to file with whois database.").Default("/var/spool/whois.txt").OverrideDefaultFromEnvar("WHOIS_FILE").String()
 
 	app.HelpFlag.Short('h')
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -31,6 +33,7 @@ func main() {
 	var carrier im.Carrier = telegram.New(*token)
 
 	chuck.Register(carrier)
+	whois.Register(carrier, *whoisFileName)
 	listmgmt.Register(carrier, *listServerUri, *banGroup)
 	listmgmt.Register(carrier, *listServerUri, *notifyGroup)
 
