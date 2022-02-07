@@ -40,7 +40,7 @@ func natsConnect() {
 	}
 
 	opts := []nats.Option{nats.Name("wait-for-subject")}
-	opts = setupConnOptions(opts)
+	opts = SetupConnOptions(opts)
 
 	// Connect to a server
 	nc, err = nats.Connect(natsURI, opts...)
@@ -144,7 +144,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	}
 }
 
-func setupConnOptions(opts []nats.Option) []nats.Option {
+func SetupConnOptions(opts []nats.Option) []nats.Option {
 	totalWait := 1 * time.Minute
 	reconnectDelay := time.Second
 

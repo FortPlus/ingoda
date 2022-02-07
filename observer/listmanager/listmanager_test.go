@@ -64,3 +64,15 @@ func TestDeleteNonexistedRecord(t *testing.T) {
 		t.Errorf("Unexpected response when trying to delete non existed pattern, %s", err)
 	}
 }
+
+func TestGetPatterns(t *testing.T) {
+	records.Clear()
+	records.AddRecord(Item{Pattern: "pattern 1"})
+	records.AddRecord(Item{Pattern: "pattern 2"})
+
+	patterns := records.GetPatterns()
+
+	if len(patterns) != 2 {
+		t.Errorf("Unexpected number of patterns, expected 2 got %d", len(patterns))
+	}
+}

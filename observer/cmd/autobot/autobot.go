@@ -19,21 +19,23 @@ import (
 func main() {
 	log.SetOutput(os.Stdout)
 
-	app := kingpin.New(filepath.Base(os.Args[0]), "telegram bot")
+	app := kingpin.New(filepath.Base(os.Args[0]), "telegram IM bot")
 	token := app.Flag("telegram.token", "Telegram token.").Required().OverrideDefaultFromEnvar("TELEGRAM_TOKEN").String()
 	listServerUri := app.Flag("list.manager.uri", "URI of the server keeping lists.").Default("http://localhost:9190").OverrideDefaultFromEnvar("LIST_MANAGER_URI").String()
+	banGroup := app.Flag("ban.group", "Name of banned list , managed by IM bot.").Default("ban").OverrideDefaultFromEnvar("BAN_GROUP").String()
+	notifyGroup := app.Flag("notify.group", "Name of notification list, managed by IM bot.").Default("notify").OverrideDefaultFromEnvar("NOTIFY_GROUP").String()
 
 	app.HelpFlag.Short('h')
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	var t im.Carrier = telegram.New(*token)
+	var carrier im.Carrier = telegram.New(*token)
 
-
-	chuck.Register(t)
-	listmgmt.Register(t, *listServerUri, "ban")
+	chuck.Register(carrier)
+	listmgmt.Register(carrier, *listServerUri, *banGroup)
+	listmgmt.Register(carrier, *listServerUri, *notifyGroup)
 
 	for {
-		messages, err := t.GetMessages()
+		messages, err := carrier.GetMessages()
 		if err != nil {
 			log.Println(fperror.Warning("Can't get message from telegram", nil))
 		}

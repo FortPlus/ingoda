@@ -24,10 +24,10 @@ func Register(carrier im.Carrier, serverUri string, listName string) {
 		serverUri: serverUri,
 		listName:  listName,
 	}
-	repository.Register("/"+b.listName+" ls", b.getList)
-	repository.Register("/"+b.listName+" add [0-9hm]* .*", b.addRecord)
-	repository.Register("/"+b.listName+" rm [0-9]*", b.deleteRecord)
-	repository.Register("/"+b.listName+" help", b.showHelp)
+	repository.Register("/list "+b.listName+" ls", b.getList)
+	repository.Register("/list "+b.listName+" add [0-9hm]* .*", b.addRecord)
+	repository.Register("/list "+b.listName+" rm [0-9]*", b.deleteRecord)
+	repository.Register("/list "+b.listName+" help", b.showHelp)
 }
 
 func (b *listBotManager) getList(message repository.RegExComparator) {
@@ -55,7 +55,7 @@ func (b *listBotManager) addRecord(message repository.RegExComparator) {
 	msg := im.Cast(message)
 	log.Printf("banmgmt:addBanRecord(), message is:%s", msg.Text)
 
-	re := regexp.MustCompile(b.listName + " add ([0-9hm]*) (.*)")
+	re := regexp.MustCompile("/list " + b.listName + " add ([0-9hm]*) (.*)")
 	match := re.FindStringSubmatch(msg.Text)
 	fmt.Println(match[0], "-", match[1], ":", match[2], "|")
 
@@ -76,9 +76,9 @@ func (b *listBotManager) addRecord(message repository.RegExComparator) {
 
 func (b *listBotManager) deleteRecord(message repository.RegExComparator) {
 	msg := im.Cast(message)
-	log.Printf("banmgmt:addBanRecord(), message is:%s", msg.Text)
+	log.Printf("banmgmt:deleteRecord(), message is:%s", msg.Text)
 
-	re := regexp.MustCompile(b.listName + " rm ([0-9]*)")
+	re := regexp.MustCompile("/list " + b.listName + " rm ([0-9]*)")
 
 	match := re.FindStringSubmatch(msg.Text)
 	fmt.Println(match[0], "-", match[1], "|")
@@ -100,9 +100,9 @@ func (b *listBotManager) showHelp(message repository.RegExComparator) {
 	msg := im.Cast(message)
 	log.Printf("listBotManager:showHelp(), message is:%s", msg.Text)
 
-	response = "/" + b.listName + " ls\n"
-	response += "/" + b.listName + " add [0-9mhDYM]* .*\n"
-	response += "/" + b.listName + " rm [0-9]*\n"
+	response = "/list " + b.listName + " ls\n"
+	response += "/list " + b.listName + " add [0-9mh]* .*\n"
+	response += "/list " + b.listName + " rm [0-9]*\n"
 
 	b.carrier.Send(msg.From, response)
 }

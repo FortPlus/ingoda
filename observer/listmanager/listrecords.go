@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"fort.plus/fperror"
+	httpTransport "fort.plus/transport"
 )
 
 const CLEANUP_PERIOD = 60
@@ -21,6 +22,21 @@ type Item struct {
 
 type ItemsMap map[uint32]Item
 
+func (i *ItemsMap) UnmarshallJSON(data []byte) error {
+	err := json.Unmarshal(data, i)
+	if err != nil {
+		err = fperror.Warning("can't unmarshall JSON", err)
+	}
+	return err
+}
+func (i *ItemsMap) MarshallJSON(data []byte) ([]byte, error) {
+	response, err := json.Marshal(i)
+	if err != nil {
+		err = fperror.Warning("can't marshall JSON", err)
+	}
+	return response, err
+}
+
 type ListRecords struct {
 	items  ItemsMap
 	name   string
@@ -31,7 +47,6 @@ type ListRecords struct {
 
 // Create new banned records map
 func New(name string) *ListRecords {
-	log.Println("New ", name)
 	var b ListRecords
 	b.items = make(ItemsMap)
 	b.lock = sync.RWMutex{}
@@ -42,8 +57,6 @@ func New(name string) *ListRecords {
 }
 
 func cleanExpired(ctx context.Context, b *ListRecords) {
-	log.Println("cleanExpired(ctx,", b.name, ")")
-
 	for {
 		time.Sleep(CLEANUP_PERIOD * time.Second)
 		select {
@@ -51,15 +64,37 @@ func cleanExpired(ctx context.Context, b *ListRecords) {
 			log.Println(b.name, "banlist::cleanExpired() - context is done")
 			return
 		default:
-			log.Println(b.name, "time to start cleanup")
 			b.cleanExpired()
+		}
+	}
+}
+
+//
+// Periodically fetch list from the server and replace the local with it
+//
+func (b *ListRecords) PeriodicImportFromServer(listManagerUri string, period int) {
+	for {
+		listFromServer := make(ItemsMap)
+		select {
+		case <-b.ctx.Done():
+			log.Println(b.name, "banlist::PeriodicImportFromServer() - context is done")
+			return
+		default:
+			err := httpTransport.Get(listManagerUri+b.name, &listFromServer)
+			if err == nil {
+				b.lock.Lock()
+				b.items = listFromServer
+				b.lock.Unlock()
+			} else {
+				log.Println(b.name, ", error while import list from server", err)
+			}
+			time.Sleep(time.Duration(period) * time.Second)
 		}
 	}
 }
 
 // Prepare banned records service to stop cleanup and storage update goroutines
 func (b *ListRecords) IsEmpty() bool {
-	log.Println(b.name, "banlist::IsEmpty()")
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	return len(b.items) == 0
@@ -143,6 +178,17 @@ func (b *ListRecords) Delete(id uint32) error {
 		delete(b.items, id)
 	} else {
 		result = fperror.Warning("Can't find pattern to delete", nil)
+	}
+	return result
+}
+
+// Get slice with patterns
+func (b *ListRecords) GetPatterns() []string {
+	var result []string = []string{}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	for _, element := range b.items {
+		result = append(result, element.Pattern)
 	}
 	return result
 }
