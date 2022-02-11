@@ -41,13 +41,6 @@ func (s *DeviceService) Get(w http.ResponseWriter, r *http.Request) {
 	devices, err := s.storage.Get(*query)
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	// empty result
-	if devices == nil {
-		log.Println("DeviceService::Get no result for query:", query)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

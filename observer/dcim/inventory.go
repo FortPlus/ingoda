@@ -77,22 +77,15 @@ func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
 
 	// (1) collect searchIndexes
 	var searchIndexes []*searchIndex
-	// fmt.Println(searchIndexes)
 	for _, query := range q.attributes {
 		key := fmt.Sprintf("%v:%v", query.name, query.value)
-		// fmt.Println(key)
-		if searcher, ok := r.searchIndexes[key]; ok {
-			searchIndexes = append(searchIndexes, searcher)
-		}
-	}
-	// (1.1) If nothing
-	if searchIndexes == nil {
-		// fmt.Println("No results founded for this query.")
-		return nil, nil
-	}
 
-	// fmt.Println("find select search indexes")
-	// fmt.Println(searchIndexes)
+		if _, ok := r.searchIndexes[key]; !ok {
+			return nil, fperror.Warning("RepoInMemory::Get no result for query: "+query.String(), nil)
+		}
+
+		searchIndexes = append(searchIndexes, r.searchIndexes[key])
+	}
 
 	// (2) find shorter searhIndexes
 	var shorter *searchIndex = searchIndexes[0]
@@ -114,9 +107,6 @@ func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
 			match = append(match, r.Devices[value])
 		}
 	}
-
-	// fmt.Println("--- match")
-	// fmt.Println(match)
 
 	return match, nil
 }
@@ -184,6 +174,14 @@ type DeviceQuery struct {
 	attributes []Attribute
 }
 
+func (d DeviceQuery) String() string {
+	res := ""
+	for _, value := range d.attributes {
+		res += value.String()
+	}
+	return res
+}
+
 func NewDeviceQuery(rawQuery map[string]string) *DeviceQuery {
 	if rawQuery == nil {
 		// get all
@@ -199,14 +197,6 @@ func NewDeviceQuery(rawQuery map[string]string) *DeviceQuery {
 	for key, value := range rawQuery {
 		query.attributes = append(query.attributes, NewAttribute(key, value))
 	}
-	return query
-}
-
-func NewDeviceAllQuery() DeviceQuery {
-	query := DeviceQuery{
-		make([]Attribute, 1),
-	}
-	query.attributes[0] = NewAttribute("*", "*")
 	return query
 }
 
