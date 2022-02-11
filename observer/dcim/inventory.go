@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -12,8 +11,6 @@ import (
 	"strings"
 	"sync"
 )
-
-// --- Utils
 
 func StrToIP(ip string) (net.IP, error) {
 	octets := strings.Split(ip, ".")
@@ -32,9 +29,6 @@ func StrToIP(ip string) (net.IP, error) {
 	return net.IP{res[0], res[1], res[2], res[3]}, nil
 }
 
-// --- Datatypes
-
-//
 type DeviceRepository interface {
 	Initialize() error
 	Delete() error
@@ -69,7 +63,6 @@ func (r *RepoInMemory) Initialize() error {
 		err  error
 		path string = os.Getenv("DCIM_DB")
 	)
-	fmt.Println("path:", path)
 	if file, err = os.Open(path); err != nil {
 		return err
 	}
@@ -102,23 +95,22 @@ func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
 
 	// (1) collect searchIndexes
 	var searchIndexes []*searchIndex
-	fmt.Println(searchIndexes)
+	// fmt.Println(searchIndexes)
 	for _, query := range q.attributes {
 		key := fmt.Sprintf("%v:%v", query.name, query.value)
-		fmt.Println(key)
+		// fmt.Println(key)
 		if searcher, ok := r.searchIndexes[key]; ok {
 			searchIndexes = append(searchIndexes, searcher)
 		}
 	}
 	// (1.1) If nothing
-	fmt.Printf("%T %v", searchIndexes, searchIndexes)
 	if searchIndexes == nil {
-		fmt.Println("No results founded for this query.")
+		// fmt.Println("No results founded for this query.")
 		return nil, nil
 	}
 
-	fmt.Println("find select search indexes")
-	fmt.Println(searchIndexes)
+	// fmt.Println("find select search indexes")
+	// fmt.Println(searchIndexes)
 
 	// (2) find shorter searhIndexes
 	// TODO: create search-index-all for getting all devices
@@ -138,13 +130,12 @@ func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
 			isOk &= searcher.bits[value]
 		}
 		if isOk == 1 {
-			fmt.Println("is match all query", value)
 			match = append(match, r.Devices[value])
 		}
 	}
 
-	fmt.Println("--- match")
-	fmt.Println(match)
+	// fmt.Println("--- match")
+	// fmt.Println(match)
 
 	return match, nil
 }
@@ -176,7 +167,6 @@ func (r *RepoInMemory) build(devices []DeviceMarshal) error {
 		}
 		r.Devices = append(r.Devices, *newDev)
 	}
-	fmt.Println(r.Devices)
 	return nil
 }
 
@@ -214,48 +204,45 @@ func (r *RepoInMemory) buildIndex() {
 	// add * searchIndex
 	r.searchIndexes["*:*"] = allIndex
 
-	for index, value := range r.searchIndexes {
-		fmt.Println(index, "\t", value)
-	}
+	// for index, value := range r.searchIndexes {
+	// 	fmt.Println(index, "\t", value)
+	// }
 }
 
 type DeviceQuery struct {
 	attributes []Attribute
 }
 
-// DeviceService is useCases
-type DeviceService struct {
-	storage DeviceRepository
-}
-
-func NewDeviceService(storage DeviceRepository) DeviceService {
-	return DeviceService{
-		storage: storage,
+func NewDeviceQuery(raw map[string]string) *DeviceQuery {
+	if raw == nil {
+		// get all
+		return &DeviceQuery{
+			[]Attribute{
+				NewAttribute("*", "*"),
+			},
+		}
 	}
+	query := &DeviceQuery{
+		make([]Attribute, 0, len(raw)),
+	}
+	for key, value := range raw {
+		query.attributes = append(query.attributes, NewAttribute(key, value))
+	}
+	return query
 }
 
-func (s *DeviceService) Delete(id uint64) error {
-	return nil
+func NewDeviceAllQuery() DeviceQuery {
+	query := DeviceQuery{
+		make([]Attribute, 1),
+	}
+	query.attributes[0] = NewAttribute("*", "*")
+	return query
 }
-func (s *DeviceService) Add(device Device) error {
-	return nil
-}
-func (s *DeviceService) Get(query DeviceQuery) []*Device {
 
-	// get result from repository
-
-	// marshal result to json bytes
-
-	return nil
-}
-func (s *DeviceService) GetAll() []*Device {
-	return nil
-}
-func (s *DeviceService) CheckDNSName() error {
-	return nil
-}
-func (s *DeviceService) CheckIsAlive() error {
-	return nil
+// DeviceShot used for API-response
+type DeviceShort struct {
+	Name string `json:"name"`
+	Ip   string `json:"ip"`
 }
 
 // DeviceMarshal used for unmarshalling from JSON
@@ -283,6 +270,7 @@ func NewDevice(id uint64, name string, ip net.IP, attr []Attribute) *Device {
 	}
 }
 
+// Attribute in free format
 type Attribute struct {
 	name  string
 	value string
@@ -292,30 +280,37 @@ func (a Attribute) String() string {
 	return fmt.Sprintf("%v:%v", a.name, a.value)
 }
 
-func NewAttribute(name, value string) *Attribute {
-	return &Attribute{name: name, value: value}
+func NewAttribute(name, value string) Attribute {
+	return Attribute{name: name, value: value}
 }
 
-// --- Handlers
-func HandleGet(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+func createResponse(devices []Device) ([]byte, error) {
+	var result []DeviceShort = make([]DeviceShort, 0, len(devices))
+	for _, device := range devices {
+		dev := DeviceShort{
+			Name: device.Name,
+			Ip:   device.OamIP.String(),
+		}
+		result = append(result, dev)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
 }
 
-func main() {
-	// init components
-	var repository DeviceRepository = NewRepoInMemory()
-	var service DeviceService = DeviceService{repository}
-	fmt.Println(service)
+func parseQuery(r *http.Request) (*DeviceQuery, error) {
+	var attr map[string]string
 
-	if err := repository.Initialize(); err != nil {
-		log.Fatal("main:: ", err)
+	if r.ContentLength == 0 {
+		return NewDeviceQuery(attr), nil
 	}
 
-	// setup handlers
-	http.HandleFunc("/dcim", HandleGet)
-
-	// run http server
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+	if err := json.NewDecoder(r.Body).Decode(&attr); err != nil {
+		return nil, err
 	}
+	defer r.Body.Close()
+
+	return NewDeviceQuery(attr), nil
 }
