@@ -12,10 +12,10 @@ const (
 )
 
 type DeviceService struct {
-	storage DeviceRepository
+	storage Storing
 }
 
-func NewDeviceService(storage DeviceRepository) DeviceService {
+func NewDeviceService(storage Storing) DeviceService {
 	return DeviceService{
 		storage: storage,
 	}
@@ -40,6 +40,7 @@ func (s *DeviceService) Get(w http.ResponseWriter, r *http.Request) {
 	// get result from repository
 	devices, err := s.storage.Get(*query)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -54,6 +55,7 @@ func (s *DeviceService) Get(w http.ResponseWriter, r *http.Request) {
 	// serialize to json
 	raw, err := createResponse(devices)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

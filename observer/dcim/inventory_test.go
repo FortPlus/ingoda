@@ -11,7 +11,7 @@ func TestDevice(t *testing.T) {
 	fmt.Println(d1)
 
 	// d2 := NewDevice()
-	ip, _ := StrToIP("10.1.1.1")
+	ip := net.ParseIP("10.1.1.1")
 	fmt.Println(ip)
 
 }
@@ -20,7 +20,7 @@ func TestAttribute(t *testing.T) {
 	attr1 := NewAttribute("site", "msk")
 	attr2 := NewAttribute("platform", "ios")
 	attr3 := NewAttribute("vendor", "cisco")
-	attr4 := NewAttribute("vendor", "access-sw")
+	attr4 := NewAttribute("role", "access-sw")
 	fmt.Println(attr1, attr2, attr3, attr4)
 }
 
