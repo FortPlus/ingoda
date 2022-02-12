@@ -2,10 +2,9 @@ package dcim
 
 import (
 	"encoding/json"
-	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 
 	"fort.plus/fperror"
@@ -15,7 +14,7 @@ type Storing interface {
 	Initialize() error
 	Delete() error
 	Add() error
-	Get(DeviceQuery) ([]Device, error)
+	Get(Attributes) ([]Device, error)
 }
 
 type searchIndex struct {
@@ -44,19 +43,20 @@ func (r *RepoInMemory) Initialize() error {
 	defer r.Unlock()
 
 	var (
-		file *os.File
-		err  error
+		err error
+		b   []byte
 	)
-	if file, err = os.Open(r.path); err != nil {
+
+	if b, err = ioutil.ReadFile(r.path); err != nil {
 		return fperror.Critical("RepoInMemory::Initialize Cannot read JSON DCIM-db file", err)
 	}
-	defer file.Close()
-	devices := make([]DeviceMarshal, 1024)
-	if err := json.NewDecoder(file).Decode(&devices); err != nil {
+
+	if err = json.Unmarshal(b, &r.Devices); err != nil {
 		return fperror.Critical("RepoInMemory::Initialize Cannot parse JSON DCIM-db file", err)
 	}
-	r.build(devices)
+
 	r.buildIndex()
+
 	return nil
 }
 
@@ -71,20 +71,24 @@ func (r *RepoInMemory) Add() error {
 	defer r.Unlock()
 	return nil
 }
-func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
+func (r *RepoInMemory) Get(q Attributes) ([]Device, error) {
 	r.RLock()
 	defer r.RUnlock()
 
 	// (1) collect searchIndexes
 	var searchIndexes []*searchIndex
-	for _, query := range q.attributes {
-		key := fmt.Sprintf("%v:%v", query.name, query.value)
-
+	for attrName, attrValue := range q {
+		key := attrName.Key(attrValue)
 		if _, ok := r.searchIndexes[key]; !ok {
-			return nil, fperror.Warning("RepoInMemory::Get no result for query: "+query.String(), nil)
+			return nil, fperror.Warning("RepoInMemory::Get no result for query: "+key, nil)
 		}
 
 		searchIndexes = append(searchIndexes, r.searchIndexes[key])
+	}
+
+	// (1.1) case when client send query like '{}'
+	if searchIndexes == nil {
+		return nil, fperror.Warning("RepoInMemory::Get no result founded", nil)
 	}
 
 	// (2) find shorter searhIndexes
@@ -113,22 +117,22 @@ func (r *RepoInMemory) Get(q DeviceQuery) ([]Device, error) {
 
 func (r *RepoInMemory) build(devices []DeviceMarshal) {
 
-	r.Devices = make([]Device, 0, len(devices))
+	// 	r.Devices = make([]Device, 0, len(devices))
 
-	for index, device := range devices {
-		ip := net.ParseIP(device.Ip)
-		newDev := NewDevice(uint64(index), device.Name, ip, nil)
-		if device.Attr != nil {
-			newDev.Attributes = make([]Attribute, 0, len(device.Attr))
-			for key, value := range device.Attr {
-				newDev.Attributes = append(
-					newDev.Attributes,
-					Attribute{name: key, value: value},
-				)
-			}
-		}
-		r.Devices = append(r.Devices, *newDev)
-	}
+	// 	for index, device := range devices {
+	// 		ip := net.ParseIP(device.Ip)
+	// 		newDev := NewDevice(uint64(index), device.Name, ip, nil)
+	// 		if device.Attr != nil {
+	// 			newDev.Attributes = make([]Attribute, 0, len(device.Attr))
+	// 			for key, value := range device.Attr {
+	// 				newDev.Attributes = append(
+	// 					newDev.Attributes,
+	// 					Attribute{Name: key, Value: value},
+	// 				)
+	// 			}
+	// 		}
+	// 		r.Devices = append(r.Devices, *newDev)
+	// 	}
 }
 
 func (r *RepoInMemory) buildIndex() {
@@ -142,8 +146,9 @@ func (r *RepoInMemory) buildIndex() {
 	}
 
 	for index, dev := range r.Devices {
-		for _, attr := range dev.Attributes {
-			key := fmt.Sprintf("%v:%v", attr.name, attr.value)
+		r.Devices[index].id = uint64(index)
+		for attrName, attrValue := range dev.Attrs {
+			key := attrName.Key(attrValue)
 			if _, ok := r.searchIndexes[key]; !ok {
 				r.searchIndexes[key] = &searchIndex{
 					count:   0,
@@ -164,40 +169,6 @@ func (r *RepoInMemory) buildIndex() {
 
 	// add * searchIndex
 	r.searchIndexes["*:*"] = allIndex
-
-	// for index, value := range r.searchIndexes {
-	// 	fmt.Println(index, "\t", value)
-	// }
-}
-
-type DeviceQuery struct {
-	attributes []Attribute
-}
-
-func (d DeviceQuery) String() string {
-	res := ""
-	for _, value := range d.attributes {
-		res += value.String()
-	}
-	return res
-}
-
-func NewDeviceQuery(rawQuery map[string]string) *DeviceQuery {
-	if rawQuery == nil {
-		// get all
-		return &DeviceQuery{
-			[]Attribute{
-				NewAttribute("*", "*"),
-			},
-		}
-	}
-	query := &DeviceQuery{
-		make([]Attribute, 0, len(rawQuery)),
-	}
-	for key, value := range rawQuery {
-		query.attributes = append(query.attributes, NewAttribute(key, value))
-	}
-	return query
 }
 
 // DeviceShot used for API-response
@@ -213,36 +184,30 @@ type DeviceMarshal struct {
 	Attr map[string]string `json:"attributes"`
 }
 
+type AttributeName string
+type Attr string
+type Attributes map[AttributeName]Attr
+
+func (a AttributeName) Key(value Attr) string {
+	return string(a) + ":" + string(value)
+}
+
 // Device represent managed network element
 type Device struct {
-	id         uint64
-	Name       string
-	OamIP      net.IP
-	Attributes []Attribute
+	id    uint64     `json:"omitempty"`
+	Name  string     `json:"name"`
+	OamIP net.IP     `json:"ip"`
+	Attrs Attributes `json:"attributes"`
 }
 
 // NewDevice create one new
-func NewDevice(id uint64, name string, ip net.IP, attr []Attribute) *Device {
+func NewDevice(id uint64, name string, ip net.IP, attr Attributes) *Device {
 	return &Device{
-		id:         id,
-		Name:       name,
-		OamIP:      ip,
-		Attributes: attr,
+		id:    id,
+		Name:  name,
+		OamIP: ip,
+		Attrs: attr,
 	}
-}
-
-// Attribute in free format
-type Attribute struct {
-	name  string
-	value string
-}
-
-func (a Attribute) String() string {
-	return fmt.Sprintf("%v:%v", a.name, a.value)
-}
-
-func NewAttribute(name, value string) Attribute {
-	return Attribute{name: name, value: value}
 }
 
 func createResponse(devices []Device) ([]byte, error) {
@@ -261,11 +226,13 @@ func createResponse(devices []Device) ([]byte, error) {
 	return raw, nil
 }
 
-func parseQuery(r *http.Request) (*DeviceQuery, error) {
-	var attr map[string]string
+func parseQuery(r *http.Request) (Attributes, error) {
+	var attr Attributes
 
 	if r.ContentLength == 0 {
-		return NewDeviceQuery(attr), nil
+		attr = make(Attributes)
+		attr["*"] = "*"
+		return attr, nil
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&attr); err != nil {
@@ -273,5 +240,5 @@ func parseQuery(r *http.Request) (*DeviceQuery, error) {
 	}
 	defer r.Body.Close()
 
-	return NewDeviceQuery(attr), nil
+	return attr, nil
 }

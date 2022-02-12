@@ -38,7 +38,7 @@ func (s *DeviceService) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get result from repository
-	devices, err := s.storage.Get(*query)
+	devices, err := s.storage.Get(query)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusNoContent)

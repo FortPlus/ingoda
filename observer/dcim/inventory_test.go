@@ -16,14 +16,6 @@ func TestDevice(t *testing.T) {
 
 }
 
-func TestAttribute(t *testing.T) {
-	attr1 := NewAttribute("site", "msk")
-	attr2 := NewAttribute("platform", "ios")
-	attr3 := NewAttribute("vendor", "cisco")
-	attr4 := NewAttribute("role", "access-sw")
-	fmt.Println(attr1, attr2, attr3, attr4)
-}
-
 func TestRepoInMemory(t *testing.T) {
 	r := &RepoInMemory{
 		searchIndexes: make(map[string]*searchIndex),
@@ -31,18 +23,7 @@ func TestRepoInMemory(t *testing.T) {
 	if err := r.Initialize(); err != nil {
 		t.Fatal(err)
 	}
-
-	q := DeviceQuery{
-		attributes: []Attribute{
-			{
-				name:  "*",
-				value: "*",
-			},
-			// {
-			// 	name:  "role",
-			// 	value: "access",
-			// },
-		},
-	}
-	r.Get(q)
+	var query Attributes = make(Attributes)
+	query["*"] = "*"
+	r.Get(query)
 }
