@@ -115,26 +115,6 @@ func (r *RepoInMemory) Get(q Attributes) ([]Device, error) {
 	return match, nil
 }
 
-func (r *RepoInMemory) build(devices []DeviceMarshal) {
-
-	// 	r.Devices = make([]Device, 0, len(devices))
-
-	// 	for index, device := range devices {
-	// 		ip := net.ParseIP(device.Ip)
-	// 		newDev := NewDevice(uint64(index), device.Name, ip, nil)
-	// 		if device.Attr != nil {
-	// 			newDev.Attributes = make([]Attribute, 0, len(device.Attr))
-	// 			for key, value := range device.Attr {
-	// 				newDev.Attributes = append(
-	// 					newDev.Attributes,
-	// 					Attribute{Name: key, Value: value},
-	// 				)
-	// 			}
-	// 		}
-	// 		r.Devices = append(r.Devices, *newDev)
-	// 	}
-}
-
 func (r *RepoInMemory) buildIndex() {
 
 	total := len(r.Devices)
@@ -175,13 +155,6 @@ func (r *RepoInMemory) buildIndex() {
 type DeviceShort struct {
 	Name string `json:"name"`
 	Ip   string `json:"ip"`
-}
-
-// DeviceMarshal used for unmarshalling from JSON
-type DeviceMarshal struct {
-	Name string            `json:"name"`
-	Ip   string            `json:"ip"`
-	Attr map[string]string `json:"attributes"`
 }
 
 type AttributeName string
