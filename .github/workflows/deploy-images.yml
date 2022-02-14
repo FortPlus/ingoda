@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-    # Publish `v1.2.3` tags as releases.
     tags:
       - v*
 
@@ -45,3 +44,8 @@ jobs:
         run: |
           docker build . --target receiver -t ghcr.io/fortplus/ingoda/observer/receiver:latest
           docker push ghcr.io/fortplus/ingoda/observer/receiver:latest
+
+      - name: Build observer/DCIM image
+        run: |
+          docker build . --target dcim -t ghcr.io/fortplus/ingoda/observer/dcim:latest
+          docker push ghcr.io/fortplus/ingoda/observer/dcim:latest

@@ -34,3 +34,8 @@ FROM ubuntu:latest as receiver
 COPY --from=builder /app/bin/receiver /ingoda/
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/ingoda/receiver"]
+
+FROM ubuntu:latest as dcim
+COPY --from=builder /app/bin/dcim /ingoda/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ENTRYPOINT ["/ingoda/dcim"]
