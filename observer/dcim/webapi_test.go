@@ -35,11 +35,11 @@ func TestWhoisService(t *testing.T) {
 		if err := whois.Load(path); err != nil {
 			t.Fatal(err)
 		}
-		result := whois.match("10.64.16.12")
+		result := whois.match("10.1.1.1")
 		for _, line := range result {
 			fmt.Println(line)
 		}
-		result = whois.match("Vlan1200")
+		result = whois.match("Vlan111")
 		for _, line := range result {
 			fmt.Println(line)
 		}
@@ -53,7 +53,7 @@ func TestWhoisService(t *testing.T) {
 		q := struct {
 			Query string `json:"query"`
 		}{
-			Query: ".*Vlan1200",
+			Query: ".*Vlan111",
 		}
 		rawQuery, _ := json.Marshal(q)
 
