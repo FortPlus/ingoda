@@ -76,3 +76,10 @@ func TestGetPatterns(t *testing.T) {
 		t.Errorf("Unexpected number of patterns, expected 2 got %d", len(patterns))
 	}
 }
+
+func TestCleanExpired(t *testing.T) {
+
+	t.Run("test new timer", func(t *testing.T) {
+		time.Sleep(time.Minute * 5)
+	})
+}

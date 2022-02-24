@@ -21,52 +21,67 @@ const (
 	CLEANUP_PERIOD = 180
 )
 
-var (
-	listMap map[string]*banlist.ListRecords = map[string]*banlist.ListRecords{}
-	lock                                    = sync.RWMutex{}
-)
+type listManager struct {
+	Storage map[string]*banlist.ListRecords `json:"storage"`
+	sync.RWMutex
+}
 
-func listMapCleanEmpty() {
+func NewListManager() *listManager {
+	lm := &listManager{
+		Storage: make(map[string]*banlist.ListRecords),
+	}
+	go lm.clean()
+	return lm
+}
+
+func (lm *listManager) Serialize() ([]byte, error) {
+	data, err := json.Marshal(lm)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func Deserialize(data []byte) (*listManager, error) {
+	lm := NewListManager()
+	if err := json.Unmarshal(data, &lm); err != nil {
+		return nil, err
+	}
+	return lm, nil
+}
+
+func (lm *listManager) clean() {
 	log.Println("listMapCleanEmpty()")
 	for {
 		time.Sleep(CLEANUP_PERIOD * time.Second)
 		log.Println("listMapCleanEmpty:time to cleanup")
-		lock.Lock()
-		for key, val := range listMap {
+		lm.Lock()
+		for key, val := range lm.Storage {
 			if val.IsEmpty() {
 				log.Println("listMapCleanEmpty:delete ", key)
 				val.Close()
-				delete(listMap, key)
+				delete(lm.Storage, key)
 			}
 		}
-		lock.Unlock()
+		lm.Unlock()
 	}
 }
 
-func getOrCreateList(name string) *banlist.ListRecords {
-	lock.RLock()
-	defer lock.RUnlock()
+func (lm *listManager) getOrCreateList(name string) *banlist.ListRecords {
+	lm.RLock()
+	defer lm.RUnlock()
 
-	if _, exist := listMap[name]; !exist {
-		listMap[name] = banlist.New(name)
+	if _, exist := lm.Storage[name]; !exist {
+		lm.Storage[name] = banlist.New(name)
 	}
-	return listMap[name]
+	return lm.Storage[name]
 }
 
-func SetHandlers(router *mux.Router) {
-	go listMapCleanEmpty()
-
-	router.HandleFunc(BASE_URI, getList).Methods(http.MethodGet)
-	router.HandleFunc(CHECK_URI, checkIfExist).Methods(http.MethodGet)
-	router.HandleFunc(BASE_URI, addRecord).Methods(http.MethodPost)
-	router.HandleFunc(DELETE_URI, deleteRecord).Methods(http.MethodDelete)
-}
-
-func getList(w http.ResponseWriter, r *http.Request) {
+func (lm *listManager) getList(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.GetBannedList()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := getOrCreateList(params["name"])
+	banList := lm.getOrCreateList(params["name"])
 
 	records, err := banList.GetRecords()
 	if err != nil {
@@ -76,11 +91,11 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	w.Write(records)
 }
 
-func checkIfExist(w http.ResponseWriter, r *http.Request) {
+func (lm *listManager) checkIfExist(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.CheckIfBanned")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := getOrCreateList(params["name"])
+	banList := lm.getOrCreateList(params["name"])
 
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -97,11 +112,11 @@ func checkIfExist(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func addRecord(w http.ResponseWriter, r *http.Request) {
+func (lm *listManager) addRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.AddRecord()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := getOrCreateList(params["name"])
+	banList := lm.getOrCreateList(params["name"])
 
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -121,11 +136,11 @@ func addRecord(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func deleteRecord(w http.ResponseWriter, r *http.Request) {
+func (lm *listManager) deleteRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.DeleteRecord()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := getOrCreateList(params["name"])
+	banList := lm.getOrCreateList(params["name"])
 
 	id, err := strconv.ParseUint(params["id"], 10, 32)
 
@@ -140,6 +155,16 @@ func deleteRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func SetHandlers(router *mux.Router) {
+
+	lm := NewListManager()
+
+	router.HandleFunc(BASE_URI, lm.getList).Methods(http.MethodGet)
+	router.HandleFunc(CHECK_URI, lm.checkIfExist).Methods(http.MethodGet)
+	router.HandleFunc(BASE_URI, lm.addRecord).Methods(http.MethodPost)
+	router.HandleFunc(DELETE_URI, lm.deleteRecord).Methods(http.MethodDelete)
 }
 
 func addHeaderParameters(w http.ResponseWriter) {

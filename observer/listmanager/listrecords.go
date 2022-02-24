@@ -47,23 +47,25 @@ type ListRecords struct {
 
 // Create new banned records map
 func New(name string) *ListRecords {
-	var b ListRecords
-	b.items = make(ItemsMap)
-	b.lock = sync.RWMutex{}
-	b.name = name
+	b := &ListRecords{
+		items: make(ItemsMap),
+		lock:  sync.RWMutex{},
+		name:  name,
+	}
+
 	b.ctx, b.cancel = context.WithCancel(context.TODO())
-	go cleanExpired(b.ctx, &b)
-	return &b
+	go b.cleanJob()
+	return b
 }
 
-func cleanExpired(ctx context.Context, b *ListRecords) {
+func (b *ListRecords) cleanJob() {
+	println("run cleanJob")
 	for {
-		time.Sleep(CLEANUP_PERIOD * time.Second)
 		select {
-		case <-ctx.Done():
+		case <-b.ctx.Done():
 			log.Println(b.name, "banlist::cleanExpired() - context is done")
 			return
-		default:
+		case <-time.After(CLEANUP_PERIOD * time.Second):
 			b.cleanExpired()
 		}
 	}
@@ -191,4 +193,39 @@ func (b *ListRecords) GetPatterns() []string {
 		result = append(result, element.Pattern)
 	}
 	return result
+}
+
+func (b *ListRecords) MarshalJSON() ([]byte, error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	var a struct {
+		Items []Item `json:"items`
+		Name  string `json:"name"`
+	}
+	for _, value := range b.items {
+		a.Items = append(a.Items, value)
+	}
+	a.Name = b.name
+	raw, err := json.Marshal(a)
+	return raw, err
+}
+
+func (b *ListRecords) UnmarshalJSON(data []byte) error {
+
+	// Create new instace with initialize and start goroutine
+	*b = *New("")
+	b.lock.Lock()
+	b.lock.Unlock()
+
+	var a struct {
+		Items []Item `json:"items`
+		Name  string `json:"name"`
+	}
+	if err := json.Unmarshal(data, &a); err != nil {
+		return nil
+	}
+	for _, value := range a.Items {
+		b.AddRecord(value)
+	}
+	return nil
 }
