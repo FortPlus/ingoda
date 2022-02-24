@@ -1,56 +1,73 @@
 package whois
 
 import (
-	"bufio"
-	"log"
-	"os"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 
-	"fort.plus/fperror"
 	"fort.plus/im"
 	"fort.plus/repository"
+	httpTransport "fort.plus/transport"
 )
 
 var (
-	carrier   im.Carrier
-	whoisFile string
+	carrier im.Carrier
 )
 
-func Register(t im.Carrier, whoisFileName string) {
-	carrier = t
-	whoisFile = whoisFileName
-	repository.Register("/whois .*", a)
+type query struct {
+	Query string `json:"query"`
 }
 
-var a = func(message repository.RegExComparator) {
+type dcimBotClient struct {
+	serverUri string
+	carrier   im.Carrier
+}
+
+func Register(carrier im.Carrier, serverUri string) {
+	b := &dcimBotClient{
+		serverUri: serverUri,
+		carrier:   carrier,
+	}
+	repository.Register("/whois .*", b.get)
+}
+
+func (b *dcimBotClient) get(message repository.RegExComparator) {
 	msg := im.Cast(message)
 	re := regexp.MustCompile("/whois (.*)")
 	match := re.FindStringSubmatch(msg.Text)
-	response := parseFile(match[1])
-	carrier.Send(msg.From, strings.Join(response, "\n"))
-}
 
-func parseFile(pattern string) []string {
-	var result []string
+	// build query
+	q := query{match[0]}
 
-	re := regexp.MustCompile(pattern)
-	readFile, err := os.Open(whoisFile)
+	// send request to service
+	raw, err := json.Marshal(q)
 	if err != nil {
-		err = fperror.Warning("can't open file", err)
-		log.Println(err)
-		return []string{}
+		b.carrier.Send(msg.From, fmt.Sprintf("can' marshal JSON query, %s", err))
+		return
 	}
-	defer readFile.Close()
 
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-
-	for fileScanner.Scan() {
-		line := fileScanner.Text()
-		if re.Match([]byte(line)) {
-			result = append(result, line)
-		}
+	resp, err := httpTransport.Request(http.MethodGet, b.serverUri+"/api/v1/whois", bytes.NewBuffer(raw))
+	if err != nil {
+		b.carrier.Send(msg.From, fmt.Sprintf("failed then request dcim/whois service, %s", err))
+		return
 	}
-	return result
+
+	// parse response
+	rawResponse, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		b.carrier.Send(msg.From, fmt.Sprintf("failed then read bytes from dcim/whois service response, %s", err))
+		return
+	}
+
+	var response []string
+	if err := json.Unmarshal(rawResponse, &response); err != nil {
+		b.carrier.Send(msg.From, fmt.Sprintf("failed then parse JSON from dcim/whois service response, %s", err))
+		return
+	}
+
+	b.carrier.Send(msg.From, strings.Join(response, "\n"))
 }

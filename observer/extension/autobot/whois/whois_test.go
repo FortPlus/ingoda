@@ -4,6 +4,6 @@ import (
 	"testing"
 )
 
-//TODO: add some tests
-func TestFindPattern(t *testing.T) {
+func TestClient(t *testing.T) {
+
 }
