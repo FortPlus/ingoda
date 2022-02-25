@@ -1,12 +1,48 @@
 package webapi
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	banlist "fort.plus/listmanager"
+	"github.com/gorilla/mux"
 )
+
+func TestAddRecord(t *testing.T) {
+
+	var data []byte = []byte("{\"pattern\":\"test\", \"expired_at\":\"2022-02-24T16:15:02.296629921+03:00\"}")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/list1/", bytes.NewBuffer(data))
+	w := httptest.NewRecorder()
+
+	lm := NewListManager()
+	lm.SetHandlers(mux.NewRouter())
+	lm.addRecord(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatal("bad status code", w.Code)
+	}
+	fmt.Println(lm.Storage)
+	for k, v := range lm.Storage {
+		fmt.Println(k, v)
+	}
+}
+
+func TestGetList(t *testing.T) {
+	lm := NewListManager()
+	lm.SetHandlers(mux.NewRouter())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/list1/", nil)
+	w := httptest.NewRecorder()
+	lm.getList(w, req)
+
+	data, _ := ioutil.ReadAll(w.Body)
+	fmt.Println(string(data))
+}
 
 func TestSerialize(t *testing.T) {
 
@@ -48,4 +84,12 @@ func TestSerialize(t *testing.T) {
 			fmt.Println("pattern", value.GetPatterns())
 		}
 	})
+}
+
+func TestTime(t *testing.T) {
+	t1 := time.Now()
+	tBefore := t1.Add(time.Hour * -1)
+	tAfter := t1.Add(time.Hour + 1)
+	fmt.Println(t1.After(tBefore))
+	fmt.Println(t1.Before(tAfter))
 }

@@ -34,7 +34,15 @@ func NewListManager() *listManager {
 	return lm
 }
 
+func (lm *listManager) SetHandlers(router *mux.Router) {
+	router.HandleFunc(BASE_URI, lm.getList).Methods(http.MethodGet)
+	router.HandleFunc(CHECK_URI, lm.checkIfExist).Methods(http.MethodGet)
+	router.HandleFunc(BASE_URI, lm.addRecord).Methods(http.MethodPost)
+	router.HandleFunc(DELETE_URI, lm.deleteRecord).Methods(http.MethodDelete)
+}
+
 func (lm *listManager) Serialize() ([]byte, error) {
+	log.Println("listManager::Serialize to []bytes")
 	data, err := json.Marshal(lm)
 	if err != nil {
 		return nil, err
@@ -43,6 +51,7 @@ func (lm *listManager) Serialize() ([]byte, error) {
 }
 
 func Deserialize(data []byte) (*listManager, error) {
+	log.Println("listManager::Deserialize []bytes to listManager struct")
 	lm := NewListManager()
 	if err := json.Unmarshal(data, &lm); err != nil {
 		return nil, err
@@ -67,7 +76,8 @@ func (lm *listManager) clean() {
 	}
 }
 
-func (lm *listManager) getOrCreateList(name string) *banlist.ListRecords {
+// get list by name
+func (lm *listManager) get(name string) *banlist.ListRecords {
 	lm.RLock()
 	defer lm.RUnlock()
 
@@ -81,11 +91,12 @@ func (lm *listManager) getList(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.GetBannedList()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := lm.getOrCreateList(params["name"])
+	banList := lm.get(params["name"])
 
 	records, err := banList.GetRecords()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(records)
@@ -95,33 +106,32 @@ func (lm *listManager) checkIfExist(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.CheckIfBanned")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := lm.getOrCreateList(params["name"])
+	banList := lm.get(params["name"])
 
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	isExists := banList.CheckIfExists(string(b[:]))
-	if isExists {
-		w.WriteHeader(http.StatusOK)
-	} else {
+	if !banList.CheckIfExists(string(b[:])) {
 		w.WriteHeader(http.StatusNoContent)
+		return
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (lm *listManager) addRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.AddRecord()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := lm.getOrCreateList(params["name"])
+	banList := lm.get(params["name"])
 
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -132,6 +142,7 @@ func (lm *listManager) addRecord(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	banList.AddRecord(*item)
 	w.WriteHeader(http.StatusCreated)
 }
@@ -140,7 +151,7 @@ func (lm *listManager) deleteRecord(w http.ResponseWriter, r *http.Request) {
 	log.Println("banlist.DeleteRecord()")
 	addHeaderParameters(w)
 	params := mux.Vars(r)
-	banList := lm.getOrCreateList(params["name"])
+	banList := lm.get(params["name"])
 
 	id, err := strconv.ParseUint(params["id"], 10, 32)
 
@@ -155,16 +166,6 @@ func (lm *listManager) deleteRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-}
-
-func SetHandlers(router *mux.Router) {
-
-	lm := NewListManager()
-
-	router.HandleFunc(BASE_URI, lm.getList).Methods(http.MethodGet)
-	router.HandleFunc(CHECK_URI, lm.checkIfExist).Methods(http.MethodGet)
-	router.HandleFunc(BASE_URI, lm.addRecord).Methods(http.MethodPost)
-	router.HandleFunc(DELETE_URI, lm.deleteRecord).Methods(http.MethodDelete)
 }
 
 func addHeaderParameters(w http.ResponseWriter) {

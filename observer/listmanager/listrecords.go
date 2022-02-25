@@ -59,7 +59,6 @@ func New(name string) *ListRecords {
 }
 
 func (b *ListRecords) cleanJob() {
-	println("run cleanJob")
 	for {
 		select {
 		case <-b.ctx.Done():
@@ -110,11 +109,11 @@ func (b *ListRecords) Close() {
 
 func (b *ListRecords) cleanExpired() {
 	log.Println(b.name, "banlist::CleanExpired()")
-	currentTime := time.Now()
+	now := time.Now()
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	for id, element := range b.items {
-		if !element.ExpiredAt.IsZero() && currentTime.Sub(element.ExpiredAt) > 0 {
+		if !element.ExpiredAt.IsZero() && now.After(element.ExpiredAt) {
 			delete(b.items, id)
 		}
 	}
@@ -129,31 +128,30 @@ func (b *ListRecords) Clear() {
 
 // Get all records in JSON format
 func (b *ListRecords) GetRecords() ([]byte, error) {
-	var err error
 
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
 	json_data, err := json.Marshal(b.items)
 	if err != nil {
-		err = fperror.Warning("can't encode records to json", err)
+		return nil, fperror.Warning("can't encode records to json", err)
 	}
-	return json_data, err
+	return json_data, nil
 }
 
 // Add item to banned records
 func (b *ListRecords) AddRecord(item Item) error {
-	var result error
 	id := crc32.ChecksumIEEE([]byte(item.Pattern))
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	if _, ok := b.items[id]; ok {
-		result = fperror.Warning("duplicate pattern", nil)
-	} else {
-		b.items[id] = item
+		return fperror.Warning("duplicate pattern", nil)
 	}
-	return result
+
+	b.items[id] = item
+
+	return nil
 }
 
 // Check if message is banned with regexp pattern matching
@@ -161,8 +159,7 @@ func (b *ListRecords) CheckIfExists(msg string) bool {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 	for _, element := range b.items {
-		res, _ := regexp.MatchString(element.Pattern, msg)
-		if res {
+		if res, _ := regexp.MatchString(element.Pattern, msg); res {
 			return true
 		}
 	}
@@ -171,22 +168,21 @@ func (b *ListRecords) CheckIfExists(msg string) bool {
 
 // Delete pattern from banned records using crc32 pattern ID
 func (b *ListRecords) Delete(id uint32) error {
-	var result error
 
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if _, ok := b.items[id]; ok {
-		delete(b.items, id)
-	} else {
-		result = fperror.Warning("Can't find pattern to delete", nil)
+	if _, ok := b.items[id]; !ok {
+		return fperror.Warning("Can't find pattern to delete", nil)
 	}
-	return result
+
+	delete(b.items, id)
+	return nil
 }
 
 // Get slice with patterns
 func (b *ListRecords) GetPatterns() []string {
-	var result []string = []string{}
+	result := make([]string, 0, len(b.items))
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	for _, element := range b.items {
@@ -195,6 +191,7 @@ func (b *ListRecords) GetPatterns() []string {
 	return result
 }
 
+// MarshalJSON implement JSON interface
 func (b *ListRecords) MarshalJSON() ([]byte, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -210,6 +207,7 @@ func (b *ListRecords) MarshalJSON() ([]byte, error) {
 	return raw, err
 }
 
+// UnmarshalJSON implement JSON interface
 func (b *ListRecords) UnmarshalJSON(data []byte) error {
 
 	// Create new instace with initialize and start goroutine
@@ -222,7 +220,7 @@ func (b *ListRecords) UnmarshalJSON(data []byte) error {
 		Name  string `json:"name"`
 	}
 	if err := json.Unmarshal(data, &a); err != nil {
-		return nil
+		return err
 	}
 	for _, value := range a.Items {
 		b.AddRecord(value)

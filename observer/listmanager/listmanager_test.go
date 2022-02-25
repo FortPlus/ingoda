@@ -1,11 +1,10 @@
-package listmanager_test
+package listmanager
 
 import (
 	"hash/crc32"
 	"testing"
 	"time"
-
-	. "fort.plus/listmanager"
+	// . "fort.plus/listmanager"
 )
 
 var records = New("ban1")
@@ -80,6 +79,14 @@ func TestGetPatterns(t *testing.T) {
 func TestCleanExpired(t *testing.T) {
 
 	t.Run("test new timer", func(t *testing.T) {
-		time.Sleep(time.Minute * 5)
+		records.Clear()
+		records.AddRecord(Item{Pattern: "pattern1", ExpiredAt: time.Now()})
+		records.AddRecord(Item{Pattern: "pattern2", ExpiredAt: time.Now().Add(time.Second * 5)})
+		time.Sleep(time.Second * 10)
+
+		if len(records.items) > 0 {
+			t.Fatalf("expected len of items %v got %v", 0, len(records.items))
+		}
+
 	})
 }

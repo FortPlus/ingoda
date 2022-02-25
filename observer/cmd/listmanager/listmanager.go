@@ -20,7 +20,8 @@ func main() {
 	app.HelpFlag.Short('h')
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
+	listManager := webapi.NewListManager()
 	router := mux.NewRouter()
-	webapi.SetHandlers(router)
+	listManager.SetHandlers(router)
 	http.ListenAndServe(*portNum, router)
 }
