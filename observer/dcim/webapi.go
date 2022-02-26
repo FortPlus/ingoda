@@ -21,6 +21,10 @@ const (
 	WHOIS_URI = "/api/v1/whois"
 )
 
+var (
+	whoisUpdateTimer = time.Minute * 30
+)
+
 type DeviceService struct {
 	storage Storing
 }
@@ -112,7 +116,7 @@ func (wh *WhoisService) update() {
 		select {
 		case <-wh.resetHoldTimer:
 			log.Println("WhoisService::update reset hold timer")
-		case <-time.After(time.Second * 5):
+		case <-time.After(whoisUpdateTimer):
 			log.Println("WhoisService::update file on timer")
 			if err := wh.load(); err != nil {
 				log.Println("WhoisService::update failed Load data-file", err)
