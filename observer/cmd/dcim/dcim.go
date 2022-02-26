@@ -27,14 +27,12 @@ func main() {
 	// init components
 	var repository dcim.Storing = dcim.NewRepoInMemory(*path)
 	var service dcim.DeviceService = dcim.NewDeviceService(repository)
-	var whois dcim.WhoisService = dcim.NewWhoisService()
+	var whois dcim.WhoisService = dcim.NewWhoisService(*whoisFileName)
 
 	if err := repository.Initialize(); err != nil {
 		log.Fatal("main:: ", err)
 	}
-	if err := whois.Load(*whoisFileName); err != nil {
-		log.Fatal("main::", err)
-	}
+	whois.Run()
 
 	// setup handlers
 	router := mux.NewRouter()

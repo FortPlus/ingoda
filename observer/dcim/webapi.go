@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sync"
+	"time"
 
 	"fort.plus/fperror"
 	"github.com/gorilla/mux"
@@ -84,15 +86,47 @@ func (s *DeviceService) CheckIsAlive() error {
 
 // WhoisService represent whois information endpoint
 type WhoisService struct {
-	data []byte
+	sync.RWMutex
+	data           []byte
+	path           string
+	resetHoldTimer chan bool
 }
 
-func NewWhoisService() WhoisService {
-	return WhoisService{}
+func NewWhoisService(path string) WhoisService {
+	return WhoisService{
+		path:           path,
+		resetHoldTimer: make(chan bool),
+	}
 }
 
-func (wh *WhoisService) Load(path string) error {
-	file, err := os.Open(path)
+func (wh *WhoisService) Run() {
+	if err := wh.load(); err != nil {
+		log.Println("WhoisService::Run failed Load data-file", err)
+	}
+	go wh.update()
+}
+
+// update data pereodically
+func (wh *WhoisService) update() {
+	for {
+		select {
+		case <-wh.resetHoldTimer:
+			log.Println("WhoisService::update reset hold timer")
+		case <-time.After(time.Second * 5):
+			log.Println("WhoisService::update file on timer")
+			if err := wh.load(); err != nil {
+				log.Println("WhoisService::update failed Load data-file", err)
+			}
+		}
+	}
+}
+
+func (wh *WhoisService) load() error {
+
+	wh.Lock()
+	defer wh.Unlock()
+
+	file, err := os.Open(wh.path)
 	if err != nil {
 		err = fperror.Warning("can't open file", err)
 		log.Println(err)
@@ -110,6 +144,10 @@ func (wh *WhoisService) Load(path string) error {
 }
 
 func (wh *WhoisService) match(pattern string) []string {
+
+	wh.RLock()
+	defer wh.RUnlock()
+
 	var result []string
 	re := regexp.MustCompile(pattern)
 	scanner := bufio.NewScanner(bytes.NewReader(wh.data))
@@ -142,6 +180,13 @@ func (wh *WhoisService) Get(w http.ResponseWriter, r *http.Request) {
 	// grep result
 	result := wh.match(q.Query)
 
+	// empty result
+	if result == nil {
+		log.Println("WhoisService::get empty result")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	// write result
 	raw, err := json.Marshal(result)
 	if err != nil {
@@ -153,4 +198,7 @@ func (wh *WhoisService) Get(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.Write(raw)
+
+	// reset update timer
+	wh.resetHoldTimer <- true
 }

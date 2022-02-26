@@ -8,33 +8,28 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestWhoisService(t *testing.T) {
 
-	path := "/var/spool/whois.txt"
+	// path := "/var/spool/whois.txt"
+	path := "/home/ag/whois.txt"
 
 	t.Run("bad file-path", func(t *testing.T) {
-		whois := NewWhoisService()
-		if err := whois.Load("/bad/path/to-file"); err == nil {
-			t.Fatal(err)
-		}
-		t.Log("test fails as expected")
+		whois := NewWhoisService("/bad/path/to-file")
+		whois.Run()
 	})
 
 	t.Run("load text-file", func(t *testing.T) {
-		whois := NewWhoisService()
-		if err := whois.Load(path); err != nil {
-			t.Fatal(err)
-		}
+		whois := NewWhoisService(path)
+		whois.Run()
 		log.Println(len(whois.data))
 	})
 
 	t.Run("math #1", func(t *testing.T) {
-		whois := NewWhoisService()
-		if err := whois.Load(path); err != nil {
-			t.Fatal(err)
-		}
+		whois := NewWhoisService(path)
+		whois.Run()
 		result := whois.match("10.1.1.1")
 		for _, line := range result {
 			fmt.Println(line)
@@ -46,10 +41,8 @@ func TestWhoisService(t *testing.T) {
 	})
 
 	t.Run("test handler", func(t *testing.T) {
-		whois := NewWhoisService()
-		if err := whois.Load(path); err != nil {
-			t.Fatal(err)
-		}
+		whois := NewWhoisService(path)
+		whois.Run()
 		q := struct {
 			Query string `json:"query"`
 		}{
@@ -63,5 +56,21 @@ func TestWhoisService(t *testing.T) {
 
 		fmt.Println("response code:", resp.Code)
 		fmt.Println("response body:", resp.Body)
+	})
+
+	t.Run("update goroutine", func(t *testing.T) {
+		whois := NewWhoisService(path)
+		whois.Run()
+
+		time.Sleep(time.Second * 6)
+		whois.resetHoldTimer <- true
+
+		time.Sleep(time.Second * 4)
+		whois.resetHoldTimer <- true
+
+		time.Sleep(time.Second * 4)
+		whois.resetHoldTimer <- true
+
+		time.Sleep(time.Minute)
 	})
 }
