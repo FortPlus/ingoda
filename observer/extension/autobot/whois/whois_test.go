@@ -11,6 +11,6 @@ func TestClient(t *testing.T) {
 	}
 	fmt.Println(client)
 	q := query{Query: "999"}
-	response := client.fromService(q)
+	response := client.search(q)
 	fmt.Println(response)
 }

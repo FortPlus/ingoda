@@ -17,19 +17,18 @@ func TestWhoisService(t *testing.T) {
 	path := "/home/ag/whois.txt"
 
 	t.Run("bad file-path", func(t *testing.T) {
-		whois := NewWhoisService("/bad/path/to-file")
-		whois.Run()
+		whois := NewWhoisService("/bad/path/to-file", time.Duration(time.Minute))
+		// whois.Run()
+		fmt.Println(whois)
 	})
 
 	t.Run("load text-file", func(t *testing.T) {
-		whois := NewWhoisService(path)
-		whois.Run()
+		whois := NewWhoisService(path, time.Duration(time.Minute))
 		log.Println(len(whois.data))
 	})
 
 	t.Run("math #1", func(t *testing.T) {
-		whois := NewWhoisService(path)
-		whois.Run()
+		whois := NewWhoisService(path, time.Duration(time.Minute))
 		result := whois.match("10.1.1.1")
 		for _, line := range result {
 			fmt.Println(line)
@@ -41,8 +40,7 @@ func TestWhoisService(t *testing.T) {
 	})
 
 	t.Run("test handler", func(t *testing.T) {
-		whois := NewWhoisService(path)
-		whois.Run()
+		whois := NewWhoisService(path, time.Duration(time.Minute))
 		q := struct {
 			Query string `json:"query"`
 		}{
@@ -59,8 +57,7 @@ func TestWhoisService(t *testing.T) {
 	})
 
 	t.Run("update goroutine", func(t *testing.T) {
-		whois := NewWhoisService(path)
-		whois.Run()
+		whois := NewWhoisService(path, time.Duration(time.Minute))
 
 		time.Sleep(time.Second * 6)
 		whois.resetHoldTimer <- true

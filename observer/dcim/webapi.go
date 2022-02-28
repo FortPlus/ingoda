@@ -21,22 +21,19 @@ const (
 	WHOIS_URI = "/api/v1/whois"
 )
 
-var (
-	whoisUpdateTimer = time.Minute * 30
-)
+func SetHandlers(r *mux.Router, deviceService *DeviceService, whois *WhoisService) {
+	r.HandleFunc(BASE_URI, deviceService.Get).Methods(http.MethodGet)
+	r.HandleFunc(WHOIS_URI, whois.Get).Methods(http.MethodGet)
+}
 
 type DeviceService struct {
 	storage Storing
 }
 
-func NewDeviceService(storage Storing) DeviceService {
-	return DeviceService{
+func NewDeviceService(storage Storing) *DeviceService {
+	return &DeviceService{
 		storage: storage,
 	}
-}
-
-func (s *DeviceService) SetHandlers(r *mux.Router) {
-	r.HandleFunc(BASE_URI, s.Get).Methods(http.MethodGet)
 }
 
 func (s *DeviceService) Get(w http.ResponseWriter, r *http.Request) {
@@ -94,20 +91,25 @@ type WhoisService struct {
 	data           []byte
 	path           string
 	resetHoldTimer chan bool
+	updateTimer    time.Duration
 }
 
-func NewWhoisService(path string) WhoisService {
-	return WhoisService{
+func NewWhoisService(path string, timer time.Duration) *WhoisService {
+	wh := &WhoisService{
 		path:           path,
 		resetHoldTimer: make(chan bool),
+		updateTimer:    timer,
 	}
-}
 
-func (wh *WhoisService) Run() {
+	// load data from json-file
 	if err := wh.load(); err != nil {
 		log.Println("WhoisService::Run failed Load data-file", err)
 	}
+
+	// run auto-update loader
 	go wh.update()
+
+	return wh
 }
 
 // update data pereodically
@@ -116,7 +118,7 @@ func (wh *WhoisService) update() {
 		select {
 		case <-wh.resetHoldTimer:
 			log.Println("WhoisService::update reset hold timer")
-		case <-time.After(whoisUpdateTimer):
+		case <-time.After(wh.updateTimer):
 			log.Println("WhoisService::update file on timer")
 			if err := wh.load(); err != nil {
 				log.Println("WhoisService::update failed Load data-file", err)
@@ -163,10 +165,6 @@ func (wh *WhoisService) match(pattern string) []string {
 		}
 	}
 	return result
-}
-
-func (wh *WhoisService) SetHandlers(r *mux.Router) {
-	r.HandleFunc(WHOIS_URI, wh.Get).Methods(http.MethodGet)
 }
 
 func (wh *WhoisService) Get(w http.ResponseWriter, r *http.Request) {
