@@ -33,15 +33,11 @@ func Register(carrier im.Carrier, serverUri string) {
 
 func (b *dcimBotClient) get(message repository.RegExComparator) {
 	msg := im.Cast(message)
-
-	// recover MustCompile possible panic
-	defer func() {
-		if r := recover(); r != nil {
-			b.carrier.Send(msg.From, fmt.Sprintf("bad search-query: %v", msg.Text))
-		}
-	}()
-
-	re := regexp.MustCompile("/whois (.*)")
+	re, err := regexp.Compile("/whois (.*)")
+	if err != nil {
+		b.carrier.Send(msg.From, fmt.Sprintf("bad search-query: %v", msg.Text))
+		return
+	}
 	match := re.FindStringSubmatch(msg.Text)
 	q := query{match[0]}
 	response := b.search(q)
