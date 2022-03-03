@@ -1,56 +1,83 @@
 package whois
 
 import (
-	"bufio"
-	"log"
-	"os"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 
-	"fort.plus/fperror"
 	"fort.plus/im"
 	"fort.plus/repository"
+	httpTransport "fort.plus/transport"
 )
 
-var (
+type query struct {
+	Query string `json:"query"`
+}
+
+type dcimBotClient struct {
+	serverUri string
 	carrier   im.Carrier
-	whoisFile string
-)
-
-func Register(t im.Carrier, whoisFileName string) {
-	carrier = t
-	whoisFile = whoisFileName
-	repository.Register("/whois .*", a)
 }
 
-var a = func(message repository.RegExComparator) {
+func Register(carrier im.Carrier, serverUri string) {
+	b := &dcimBotClient{
+		serverUri: serverUri,
+		carrier:   carrier,
+	}
+	repository.Register("/whois .*", b.get)
+}
+
+func (b *dcimBotClient) get(message repository.RegExComparator) {
 	msg := im.Cast(message)
-	re := regexp.MustCompile("/whois (.*)")
+	re, err := regexp.Compile("/whois (.*)")
+	if err != nil {
+		b.carrier.Send(msg.From, fmt.Sprintf("bad search-query: %v", msg.Text))
+		return
+	}
 	match := re.FindStringSubmatch(msg.Text)
-	response := parseFile(match[1])
-	carrier.Send(msg.From, strings.Join(response, "\n"))
+	q := query{match[0]}
+	response := b.search(q)
+	b.carrier.Send(msg.From, response)
 }
 
-func parseFile(pattern string) []string {
-	var result []string
-
-	re := regexp.MustCompile(pattern)
-	readFile, err := os.Open(whoisFile)
+// search in whois service. Send http-request to whois-service and parse response
+func (b *dcimBotClient) search(q query) string {
+	// masrhal request to json-bytes
+	raw, err := json.Marshal(q)
 	if err != nil {
-		err = fperror.Warning("can't open file", err)
-		log.Println(err)
-		return []string{}
+		return fmt.Sprintf("can' marshal JSON query, %s", err)
 	}
-	defer readFile.Close()
 
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-
-	for fileScanner.Scan() {
-		line := fileScanner.Text()
-		if re.Match([]byte(line)) {
-			result = append(result, line)
-		}
+	// send request to service
+	resp, err := httpTransport.Request(http.MethodGet, b.serverUri+"/api/v1/whois", bytes.NewBuffer(raw))
+	if err != nil {
+		return fmt.Sprintf("failed then request dcim/whois service, %s", err)
 	}
-	return result
+
+	if resp.StatusCode == http.StatusNoContent {
+		return fmt.Sprintf("get status code: 204 (no content) from whois-service for query:%v", q.Query)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		return fmt.Sprintf("get status code: 404 (bad request) from whois-service for query:%v", q.Query)
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		return fmt.Sprintf("get status code: 500 from whois-service for query:%v", q.Query)
+	}
+
+	// parse response
+	rawResponse, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("failed then read bytes from dcim/whois service response, %s", err)
+	}
+
+	var response []string
+	if err := json.Unmarshal(rawResponse, &response); err != nil {
+		return fmt.Sprintf("failed then parse JSON from dcim/whois service response, %s", err)
+	}
+
+	return strings.Join(response, "\n")
 }

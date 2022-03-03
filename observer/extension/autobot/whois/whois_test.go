@@ -1,9 +1,16 @@
 ﻿package whois
 
 import (
+	"fmt"
 	"testing"
 )
 
-//TODO: add some tests
-func TestFindPattern(t *testing.T) {
+func TestClient(t *testing.T) {
+	client := &dcimBotClient{
+		serverUri: "http://localhost:38000",
+	}
+	fmt.Println(client)
+	q := query{Query: "999"}
+	response := client.search(q)
+	fmt.Println(response)
 }
